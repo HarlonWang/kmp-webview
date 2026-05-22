@@ -15,6 +15,12 @@ internal class MediaPermissionLauncher(
     private var pendingRequest: PermissionRequest? = null
 
     fun handle(request: PermissionRequest) {
+        // 同时只允许一个 pending PermissionRequest：若已有上一个未决，先 deny 旧的，避免 H5 端
+        // Promise 永远不 resolve。
+        pendingRequest?.let { previous ->
+            pendingRequest = null
+            previous.deny()
+        }
         val webResources = request.resources ?: emptyArray()
         val systemPerms = webResources.mapNotNull(::mapToSystemPermission).distinct()
         if (systemPerms.isEmpty()) {

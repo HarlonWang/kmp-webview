@@ -86,8 +86,13 @@ internal class FileChooserLauncher(
                     }
                     .isSuccess
             }
-            // 业务方未在 manifest 声明 CAMERA：相机路径不可用，降级到普通文件选择，
-            // 让 H5 input 至少能拿到一次结果，不卡死
+            // 业务方未在 manifest 声明 CAMERA：相机路径不可用。如果同时也关掉了文件选择，
+            // 尊重 allowFileChooser 开关直接 deny，不再降级；否则降级到普通文件选择。
+            !config.allowFileChooser -> {
+                Log.w(TAG, "CAMERA not declared and allowFileChooser is false; deny")
+                finishPending(null)
+                true
+            }
             else -> {
                 Log.w(TAG, "CAMERA not declared in manifest; falling back to file picker")
                 val accept = "image/*"
