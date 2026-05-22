@@ -32,7 +32,7 @@ internal actual fun PlatformWebView(
         launcherHolder.fileChooser?.onPickerResult(uri)
     }
     val multiDocLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        launcherHolder.fileChooser?.onMultiPickerResult(uris.orEmpty())
+        launcherHolder.fileChooser?.onMultiPickerResult(uris)
     }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         launcherHolder.fileChooser?.onCameraResult(success)

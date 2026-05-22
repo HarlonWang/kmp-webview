@@ -113,9 +113,15 @@ internal class FileChooserLauncher(
     }
 
     private fun resolveMimeTypes(acceptTypes: Array<String>?): Array<String> {
+        // 防御 WebView 实现差异：部分 ROM 可能把 H5 accept="image/*,application/pdf" 整体作为
+        // 一个 entry 传过来，这里再按逗号拆一层（已拆分的 entry 拆出来还是它自己，幂等）。
         val cleaned = acceptTypes
-            ?.mapNotNull { it.takeIf { s -> s.isNotBlank() }?.trim() }
+            ?.asSequence()
+            ?.flatMap { it.splitToSequence(',') }
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
             ?.distinct()
+            ?.toList()
             .orEmpty()
         return if (cleaned.isEmpty()) arrayOf("*/*") else cleaned.toTypedArray()
     }
