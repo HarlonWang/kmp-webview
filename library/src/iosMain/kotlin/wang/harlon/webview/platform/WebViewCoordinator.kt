@@ -11,9 +11,13 @@ import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewState
 
 @OptIn(ExperimentalForeignApi::class)
-internal class WebViewCoordinator(private val state: WebViewState) {
+internal class WebViewCoordinator(
+    private val state: WebViewState,
+    private val config: wang.harlon.webview.core.WebViewConfig,
+) {
 
     val delegate: WKNavigationDelegateProtocol = SdkNavigationDelegate(state)
+    val uiDelegate: platform.WebKit.WKUIDelegateProtocol = SdkUIDelegate(config)
 
     var webView: WKWebView? = null
         private set
@@ -37,6 +41,7 @@ internal class WebViewCoordinator(private val state: WebViewState) {
 
     fun dispose() {
         webView?.navigationDelegate = null
+        webView?.UIDelegate = null
         webView = null
     }
 }

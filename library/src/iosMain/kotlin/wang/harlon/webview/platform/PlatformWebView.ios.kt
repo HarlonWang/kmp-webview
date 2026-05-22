@@ -9,6 +9,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
+import platform.WebKit.WKAudiovisualMediaTypeNone
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 import wang.harlon.webview.core.UserAgentStrategy
@@ -23,16 +24,21 @@ internal actual fun PlatformWebView(
     config: WebViewConfig,
     modifier: Modifier,
 ) {
-    val coordinator = remember { WebViewCoordinator(state) }
+    val coordinator = remember(config) { WebViewCoordinator(state, config) }
 
     UIKitView(
         modifier = modifier,
         factory = {
+            val wkConfig = WKWebViewConfiguration().apply {
+                allowsInlineMediaPlayback = true
+                mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone
+            }
             val webView = WKWebView(
                 frame = platform.CoreGraphics.CGRectMake(0.0, 0.0, 0.0, 0.0),
-                configuration = WKWebViewConfiguration(),
+                configuration = wkConfig,
             )
             webView.navigationDelegate = coordinator.delegate
+            webView.UIDelegate = coordinator.uiDelegate
             coordinator.applyUserAgent(webView, config.userAgent)
             coordinator.bind(webView)
             webView

@@ -3,10 +3,14 @@ package wang.harlon.webview.platform
 import android.annotation.SuppressLint
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewCommand
@@ -20,7 +24,33 @@ internal actual fun PlatformWebView(
     config: WebViewConfig,
     modifier: Modifier,
 ) {
+    val context = LocalContext.current
     val webViewHolder = remember { WebViewHolder() }
+    val launcherHolder = remember { LauncherHolder() }
+
+    val pickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        launcherHolder.fileChooser?.onPickerResult(uri)
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        launcherHolder.fileChooser?.onCameraResult(success)
+    }
+    val cameraPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        launcherHolder.fileChooser?.onCameraPermissionResult(granted)
+    }
+    val mediaPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        launcherHolder.mediaPermission?.onSystemPermissionResult(result)
+    }
+
+    DisposableEffect(config) {
+        launcherHolder.fileChooser = FileChooserLauncher(context, config, pickerLauncher, cameraLauncher, cameraPermLauncher)
+        launcherHolder.mediaPermission = MediaPermissionLauncher(context, mediaPermLauncher)
+        onDispose {
+            launcherHolder.fileChooser?.dispose()
+            launcherHolder.mediaPermission?.dispose()
+            launcherHolder.fileChooser = null
+            launcherHolder.mediaPermission = null
+        }
+    }
 
     AndroidView(
         modifier = modifier,
@@ -29,10 +59,16 @@ internal actual fun PlatformWebView(
                 wv.settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    mediaPlaybackRequiresUserGesture = false
                     applyUserAgent(this, config.userAgent)
                 }
                 wv.webViewClient = SdkWebViewClient(state)
-                wv.webChromeClient = SdkWebChromeClient(state)
+                wv.webChromeClient = SdkWebChromeClient(
+                    state = state,
+                    config = config,
+                    fileChooserProvider = { launcherHolder.fileChooser },
+                    mediaPermissionProvider = { launcherHolder.mediaPermission },
+                )
                 webViewHolder.attach(wv)
             }
         },
@@ -76,4 +112,9 @@ private class WebViewHolder {
 
     fun attach(wv: WebView) { webView = wv }
     fun detach() { webView = null }
+}
+
+private class LauncherHolder {
+    var fileChooser: FileChooserLauncher? = null
+    var mediaPermission: MediaPermissionLauncher? = null
 }
