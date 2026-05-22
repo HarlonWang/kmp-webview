@@ -1,22 +1,14 @@
 package wang.harlon.webview.ui
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextOverflow
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
@@ -29,7 +21,6 @@ internal fun WebViewTopBar(
     onCloseRequest: () -> Unit,
 ) {
     val resolvedTitle = config.titleOverride ?: state.title
-    var menuExpanded by remember { mutableStateOf(false) }
 
     TopAppBar(
         title = {
@@ -43,27 +34,6 @@ internal fun WebViewTopBar(
             } else {
                 IconButton(onClick = onCloseRequest) {
                     Icon(Icons.Filled.Close, contentDescription = "关闭")
-                }
-            }
-        },
-        actions = {
-            if (config.overflowMenu.isNotEmpty()) {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "更多")
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                ) {
-                    config.overflowMenu.forEach { action ->
-                        DropdownMenuItem(
-                            text = { Text(action.label) },
-                            onClick = {
-                                menuExpanded = false
-                                action.onClick(state)
-                            },
-                        )
-                    }
                 }
             }
         },

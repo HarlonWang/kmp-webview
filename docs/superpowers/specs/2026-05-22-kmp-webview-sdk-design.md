@@ -9,7 +9,7 @@
 
 提供一个开箱即用的 KMP WebView 组件，业务方在 Compose Multiplatform 项目中通过一个 `@Composable` 入口即可呈现：
 
-- 顶部 Material3 `TopAppBar`：动态标题、返回/关闭、右侧"更多"菜单
+- 顶部 Material3 `TopAppBar`：动态标题、返回/关闭
 - TopAppBar 下方的加载状态条（indeterminate `LinearProgressIndicator`）
 - 中间区域：原生 WebView（Android `WebView` / iOS `WKWebView`）
 - 底部导航栏：后退、前进、刷新/停止
@@ -36,7 +36,6 @@ kmp-webview/
 │       │   │   ├── WebViewState.kt       # rememberWebViewState() + class WebViewState
 │       │   │   ├── WebViewConfig.kt      # 配置数据类
 │       │   │   ├── LoadingState.kt       # sealed: Idle / Loading / Finished / Error
-│       │   │   ├── MenuAction.kt
 │       │   │   └── UserAgentStrategy.kt
 │       │   ├── platform/
 │       │   │   └── PlatformWebView.kt    # expect @Composable
@@ -99,7 +98,6 @@ data class WebViewConfig(
     val userAgent: UserAgentStrategy = UserAgentStrategy.Default,
     val showBottomBar: Boolean = true,
     val showProgressBar: Boolean = true,
-    val overflowMenu: List<MenuAction> = defaultMenuActions(),
     val errorContent: (@Composable (LoadingState.Error, retry: () -> Unit) -> Unit)? = null,
 )
 
@@ -108,12 +106,6 @@ sealed interface UserAgentStrategy {
     data class Append(val suffix: String) : UserAgentStrategy
     data class Override(val value: String) : UserAgentStrategy
 }
-
-data class MenuAction(
-    val id: String,
-    val label: String,
-    val onClick: (WebViewState) -> Unit,
-)
 
 sealed interface LoadingState {
     object Idle : LoadingState
@@ -129,10 +121,9 @@ sealed interface LoadingState {
 
 **设计要点**：
 
-- 业务方只需要 4 个核心类型：`WebViewScreen` / `WebViewState` / `WebViewConfig` / `LoadingState`，加 `UserAgentStrategy`、`MenuAction` 辅助类型
+- 业务方只需要 4 个核心类型：`WebViewScreen` / `WebViewState` / `WebViewConfig` / `LoadingState`，加 `UserAgentStrategy` 辅助类型
 - `onCloseRequest` **必填**：SDK 不假设导航容器，把"何时关闭页面"交回业务方
 - `WebViewState` 内部用 Compose `mutableStateOf` 驱动，对外只读；用 `class` 而非 `interface`
-- 默认菜单项：刷新、复制链接、在系统浏览器打开（业务方可整体替换或追加）
 - 主题跟随调用方的 `MaterialTheme`，SDK 不提供颜色参数
 
 ## 4. UI 组件（内部）
@@ -164,7 +155,6 @@ Scaffold(
 - Material3 `TopAppBar`
 - 标题：`config.titleOverride ?: state.title`，单行省略
 - `navigationIcon`：`state.canGoBack` 时显示返回箭头并调 `state.goBack()`；否则显示关闭叉号并调 `onCloseRequest()`
-- `actions`：单个"更多"`IconButton`，点开 `DropdownMenu` 渲染 `config.overflowMenu`
 
 ### 4.2 WebViewProgressBar
 
@@ -304,7 +294,7 @@ WebViewState.goBack / reload / loadUrl / ...
 | 层 | 工具 | 覆盖内容 |
 |----|------|----------|
 | `commonTest` | `kotlin.test` | `WebViewState` 状态机：bind/unbind、按钮 enabled 计算、loadUrl 校验、Error 状态转换 |
-| `commonTest`（UI 单测） | `compose-multiplatform-uitest`（`runComposeUiTest`） | `WebViewTopBar` / `WebViewBottomBar` / `DefaultErrorView` 在不同 state 下的渲染：返回按钮态、菜单展开、加载条显隐 |
+| `commonTest`（UI 单测） | `compose-multiplatform-uitest`（`runComposeUiTest`） | `WebViewTopBar` / `WebViewBottomBar` / `DefaultErrorView` 在不同 state 下的渲染：返回按钮态、加载条显隐 |
 | `androidUnitTest` | Robolectric | `SdkWebViewClient` 回调 → state 写入正确 |
 | `androidInstrumentedTest`（可选 / 后续） | Espresso + 演示工程 | 真机集成：加载本地 HTML、点击底部后退/前进 |
 | iOS 单测 | KMP `iosTest` + 假 `WKNavigationDelegate` 调用 | navigation delegate 回调 → state 写入。WKWebView 本体不在单测里跑，由演示工程手动验收 |
@@ -332,7 +322,7 @@ WebViewState.goBack / reload / loadUrl / ...
 ## 11. 验收清单
 
 - [ ] `commonMain` 公开 API 与本文档第 3 节一致
-- [ ] Android `:androidApp` 演示工程能加载 https URL，TopAppBar 标题随页面变化，底部后退/前进/刷新按钮可用
+- [ ] Android `:androidApp` 演示工程能加载 https URL，TopAppBar 标题随页面变化，底部后退/前进/刷新按钮可用，TopAppBar 仅含标题与返回/关闭，无右上角更多按钮
 - [ ] iOS `:iosApp` 演示工程能加载 https URL，标题在加载完成后刷新，底部按钮可用
 - [ ] 加载失败时显示 `DefaultErrorView`，点击重试可恢复
 - [ ] User-Agent `Append` 在两端均生效
