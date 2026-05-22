@@ -26,6 +26,13 @@
 </section>
 
 <section>
+    <h2>1b. 多选 + 混合 MIME（multiple, accept=image/*,application/pdf）</h2>
+    <label class="btn" for="fileMulti">选择多个</label>
+    <input id="fileMulti" type="file" multiple accept="image/*,application/pdf">
+    <div id="fileMultiOut" class="out">未选择</div>
+</section>
+
+<section>
     <h2>2. 拍照（capture=camera）</h2>
     <label class="btn" for="file2">拍照</label>
     <input id="file2" type="file" accept="image/*" capture="camera">
@@ -53,6 +60,18 @@
     }
     document.getElementById('file1').addEventListener('change', e => showFile(e.target, 'file1Out'));
     document.getElementById('file2').addEventListener('change', e => showFile(e.target, 'file2Out', 'file2Preview'));
+
+    document.getElementById('fileMulti').addEventListener('change', e => {
+        const files = e.target.files;
+        const out = document.getElementById('fileMultiOut');
+        if (!files || files.length === 0) { out.textContent = '未选择'; return; }
+        const lines = [`count=${files.length}`];
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            lines.push(`[${i}] ${f.name} | ${f.size}B | ${f.type}`);
+        }
+        out.textContent = lines.join('\n');
+    });
 
     let currentStream = null;
     document.getElementById('gumBtn').addEventListener('click', async () => {
