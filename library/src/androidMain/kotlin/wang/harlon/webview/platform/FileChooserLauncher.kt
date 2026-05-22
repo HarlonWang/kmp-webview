@@ -17,7 +17,8 @@ import wang.harlon.webview.core.WebViewConfig
 internal class FileChooserLauncher(
     private val context: Context,
     private val config: WebViewConfig,
-    private val pickerLauncher: ActivityResultLauncher<String>,
+    private val singleDocLauncher: ActivityResultLauncher<Array<String>>,
+    private val multiDocLauncher: ActivityResultLauncher<Array<String>>,
     private val cameraLauncher: ActivityResultLauncher<Uri>,
     private val cameraPermissionLauncher: ActivityResultLauncher<String>,
 ) {
@@ -28,20 +29,15 @@ internal class FileChooserLauncher(
     fun launch(callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
         finishPending(null)
         val wantsCamera = params.isCaptureEnabled
+        val wantsMultiple = params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
         return when {
             wantsCamera && config.allowCameraCapture -> {
                 pendingCallback = callback
-                requestCameraPermissionThenLaunch()
+                requestCameraPermissionThenLaunch(params)
             }
             config.allowFileChooser -> {
                 pendingCallback = callback
-                val accept = params.acceptTypes.firstOrNull().takeUnless { it.isNullOrBlank() } ?: "*/*"
-                runCatching { pickerLauncher.launch(accept) }
-                    .onFailure {
-                        Log.w(TAG, "launch picker failed", it)
-                        finishPending(null)
-                    }
-                    .isSuccess
+                launchDocumentPicker(params.acceptTypes, wantsMultiple)
             }
             else -> {
                 callback.onReceiveValue(null)
@@ -52,6 +48,10 @@ internal class FileChooserLauncher(
 
     fun onPickerResult(uri: Uri?) {
         finishPending(uri?.let { arrayOf(it) })
+    }
+
+    fun onMultiPickerResult(uris: List<Uri>) {
+        finishPending(uris.takeIf { it.isNotEmpty() }?.toTypedArray())
     }
 
     fun onCameraResult(success: Boolean) {
@@ -70,7 +70,7 @@ internal class FileChooserLauncher(
         }
     }
 
-    private fun requestCameraPermissionThenLaunch(): Boolean {
+    private fun requestCameraPermissionThenLaunch(params: WebChromeClient.FileChooserParams): Boolean {
         val declared = isCameraDeclaredInManifest()
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
@@ -86,24 +86,38 @@ internal class FileChooserLauncher(
                     }
                     .isSuccess
             }
-            // 业务方未在 manifest 声明 CAMERA：相机路径不可用。如果同时也关掉了文件选择，
-            // 尊重 allowFileChooser 开关直接 deny，不再降级；否则降级到普通文件选择。
+            // CAMERA 未声明：相机路径不可用。若 allowFileChooser 也关闭，遵守开关直接 deny；
+            // 否则降级到普通文档选择，给 H5 一个最终结果，避免 input 卡死。
             !config.allowFileChooser -> {
                 Log.w(TAG, "CAMERA not declared and allowFileChooser is false; deny")
                 finishPending(null)
                 true
             }
             else -> {
-                Log.w(TAG, "CAMERA not declared in manifest; falling back to file picker")
-                val accept = "image/*"
-                runCatching { pickerLauncher.launch(accept) }
-                    .onFailure {
-                        Log.w(TAG, "launch picker fallback failed", it)
-                        finishPending(null)
-                    }
-                    .isSuccess
+                Log.w(TAG, "CAMERA not declared in manifest; falling back to document picker")
+                launchDocumentPicker(params.acceptTypes, wantsMultiple = false)
             }
         }
+    }
+
+    private fun launchDocumentPicker(acceptTypes: Array<String>?, wantsMultiple: Boolean): Boolean {
+        val mimes = resolveMimeTypes(acceptTypes)
+        val launcher = if (wantsMultiple) multiDocLauncher else singleDocLauncher
+        val label = if (wantsMultiple) "multi" else "single"
+        return runCatching { launcher.launch(mimes) }
+            .onFailure {
+                Log.w(TAG, "launch $label document picker failed", it)
+                finishPending(null)
+            }
+            .isSuccess
+    }
+
+    private fun resolveMimeTypes(acceptTypes: Array<String>?): Array<String> {
+        val cleaned = acceptTypes
+            ?.mapNotNull { it.takeIf { s -> s.isNotBlank() }?.trim() }
+            ?.distinct()
+            .orEmpty()
+        return if (cleaned.isEmpty()) arrayOf("*/*") else cleaned.toTypedArray()
     }
 
     private fun launchCameraIntent(): Boolean {

@@ -28,8 +28,11 @@ internal actual fun PlatformWebView(
     val webViewHolder = remember { WebViewHolder() }
     val launcherHolder = remember { LauncherHolder() }
 
-    val pickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val singleDocLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         launcherHolder.fileChooser?.onPickerResult(uri)
+    }
+    val multiDocLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        launcherHolder.fileChooser?.onMultiPickerResult(uris.orEmpty())
     }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         launcherHolder.fileChooser?.onCameraResult(success)
@@ -42,7 +45,14 @@ internal actual fun PlatformWebView(
     }
 
     DisposableEffect(config) {
-        launcherHolder.fileChooser = FileChooserLauncher(context, config, pickerLauncher, cameraLauncher, cameraPermLauncher)
+        launcherHolder.fileChooser = FileChooserLauncher(
+            context = context,
+            config = config,
+            singleDocLauncher = singleDocLauncher,
+            multiDocLauncher = multiDocLauncher,
+            cameraLauncher = cameraLauncher,
+            cameraPermissionLauncher = cameraPermLauncher,
+        )
         launcherHolder.mediaPermission = MediaPermissionLauncher(context, mediaPermLauncher)
         onDispose {
             launcherHolder.fileChooser?.dispose()
