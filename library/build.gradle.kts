@@ -59,6 +59,11 @@ kotlin {
             implementation(compose.materialIconsExtended)
         }
 
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.core)
+        }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }

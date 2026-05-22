@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备能力测试</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 16px; line-height: 1.6; }
+        section { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+        h2 { font-size: 16px; margin: 0 0 8px; }
+        .out { white-space: pre-wrap; font-family: monospace; font-size: 12px; background: #f6f6f6; padding: 8px; border-radius: 4px; word-break: break-all; }
+        button, label.btn { display: inline-block; background: #2962ff; color: #fff; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; }
+        input[type=file] { display: none; }
+        video { width: 100%; max-height: 200px; background: #000; border-radius: 4px; margin-top: 8px; }
+        img { max-width: 100%; margin-top: 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<h1>kmp-webview 设备能力测试</h1>
+
+<section>
+    <h2>1. 文件选择（&lt;input type=file&gt;）</h2>
+    <label class="btn" for="file1">选择文件</label>
+    <input id="file1" type="file" accept="*/*">
+    <div id="file1Out" class="out">未选择</div>
+</section>
+
+<section>
+    <h2>2. 拍照（capture=camera）</h2>
+    <label class="btn" for="file2">拍照</label>
+    <input id="file2" type="file" accept="image/*" capture="camera">
+    <div id="file2Out" class="out">未拍照</div>
+    <img id="file2Preview" alt="">
+</section>
+
+<section>
+    <h2>3. getUserMedia（摄像头）</h2>
+    <button id="gumBtn">启动摄像头</button>
+    <button id="gumStopBtn">停止</button>
+    <div id="gumOut" class="out">未启动</div>
+    <video id="gumVideo" autoplay playsinline muted></video>
+</section>
+
+<script>
+    function showFile(input, outId, previewId) {
+        const file = input.files && input.files[0];
+        const out = document.getElementById(outId);
+        if (!file) { out.textContent = '未选择'; return; }
+        out.textContent = `name=${file.name}\nsize=${file.size}B\ntype=${file.type}`;
+        if (previewId && file.type.startsWith('image/')) {
+            document.getElementById(previewId).src = URL.createObjectURL(file);
+        }
+    }
+    document.getElementById('file1').addEventListener('change', e => showFile(e.target, 'file1Out'));
+    document.getElementById('file2').addEventListener('change', e => showFile(e.target, 'file2Out', 'file2Preview'));
+
+    let currentStream = null;
+    document.getElementById('gumBtn').addEventListener('click', async () => {
+        const out = document.getElementById('gumOut');
+        out.textContent = '请求权限...';
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            currentStream = stream;
+            document.getElementById('gumVideo').srcObject = stream;
+            out.textContent = `已启动，tracks=${stream.getTracks().length}`;
+        } catch (err) {
+            out.textContent = `失败：${err.name}：${err.message}`;
+        }
+    });
+    document.getElementById('gumStopBtn').addEventListener('click', () => {
+        if (currentStream) {
+            currentStream.getTracks().forEach(t => t.stop());
+            currentStream = null;
+        }
+        document.getElementById('gumVideo').srcObject = null;
+        document.getElementById('gumOut').textContent = '已停止';
+    });
+</script>
+</body>
+</html>

@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
 private fun DemoApp(onClose: () -> Unit) {
     MaterialTheme {
         Surface {
-            val state = rememberWebViewState("https://www.baidu.com")
+            val state = rememberWebViewState("file:///android_asset/device_capabilities_test.html")
             WebViewScreen(state = state, onCloseRequest = onClose)
         }
     }
