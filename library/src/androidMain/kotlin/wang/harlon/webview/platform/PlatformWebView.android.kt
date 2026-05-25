@@ -77,7 +77,11 @@ internal actual fun PlatformWebView(
                     mediaPlaybackRequiresUserGesture = false
                     applyUserAgent(this, config.userAgent)
                 }
-                val binder = JsBridgeAndroidBinder(wv, state.jsBridge)
+                val binder = JsBridgeAndroidBinder(
+                    webView = wv,
+                    bridge = state.jsBridge,
+                    channel = state.bridgeChannel,
+                )
                 webViewHolder.binder = binder
                 wv.webViewClient = SdkWebViewClient(
                     state = state,
