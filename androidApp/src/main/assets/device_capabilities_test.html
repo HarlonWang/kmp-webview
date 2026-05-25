@@ -111,38 +111,46 @@
 
     function format(v) { try { return JSON.stringify(v, null, 2); } catch (e) { return String(v); } }
 
-    document.getElementById('brEchoBtn').addEventListener('click', async () => {
-        try {
-            const r = await KmpBridge.call('echo', { hello: 'world', t: Date.now() });
-            brOut.textContent = 'echo →\n' + format(r);
-        } catch (e) {
-            brOut.textContent = `失败 code=${e.code} msg=${e.message}`;
-        }
-    });
+    // Android 上 SHIM 注入可能晚于本 inline script——用 KmpBridgeReady 兜底
+    function whenBridgeReady(cb) {
+        if (window.KmpBridge) cb();
+        else window.addEventListener('KmpBridgeReady', cb, { once: true });
+    }
 
-    document.getElementById('brInfoBtn').addEventListener('click', async () => {
-        try {
-            const r = await KmpBridge.call('getDeviceInfo');
-            brOut.textContent = 'getDeviceInfo →\n' + format(r);
-        } catch (e) {
-            brOut.textContent = `失败 code=${e.code} msg=${e.message}`;
-        }
-    });
+    whenBridgeReady(() => {
+        document.getElementById('brEchoBtn').addEventListener('click', async () => {
+            try {
+                const r = await KmpBridge.call('echo', { hello: 'world', t: Date.now() });
+                brOut.textContent = 'echo →\n' + format(r);
+            } catch (e) {
+                brOut.textContent = `失败 code=${e.code} msg=${e.message}`;
+            }
+        });
 
-    document.getElementById('brErrBtn').addEventListener('click', async () => {
-        try {
-            await KmpBridge.call('missingHandler');
-            brOut.textContent = '不应到达此处';
-        } catch (e) {
-            brOut.textContent = `预期失败 code=${e.code} msg=${e.message}`;
-        }
-    });
+        document.getElementById('brInfoBtn').addEventListener('click', async () => {
+            try {
+                const r = await KmpBridge.call('getDeviceInfo');
+                brOut.textContent = 'getDeviceInfo →\n' + format(r);
+            } catch (e) {
+                brOut.textContent = `失败 code=${e.code} msg=${e.message}`;
+            }
+        });
 
-    const events = [];
-    KmpBridge.on('demo.tick', payload => {
-        events.unshift(`tick: ${format(payload)}`);
-        if (events.length > 5) events.pop();
-        brEventOut.textContent = events.join('\n');
+        document.getElementById('brErrBtn').addEventListener('click', async () => {
+            try {
+                await KmpBridge.call('missingHandler');
+                brOut.textContent = '不应到达此处';
+            } catch (e) {
+                brOut.textContent = `预期失败 code=${e.code} msg=${e.message}`;
+            }
+        });
+
+        const events = [];
+        KmpBridge.on('demo.tick', payload => {
+            events.unshift(`tick: ${format(payload)}`);
+            if (events.length > 5) events.pop();
+            brEventOut.textContent = events.join('\n');
+        });
     });
 </script>
 </body>

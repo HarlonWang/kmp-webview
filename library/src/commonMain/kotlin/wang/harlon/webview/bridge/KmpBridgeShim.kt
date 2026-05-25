@@ -65,5 +65,8 @@ internal const val KMP_BRIDGE_SHIM_JS: String = """
       arr.slice().forEach(function (cb) { try { cb(v); } catch (e) {} });
     }
   };
+  // 通知页面：KmpBridge 已就绪。Android 上注入晚于同步 inline <script> 的场景，
+  // 业务方可监听此事件兜底：if (window.KmpBridge) init(); else addEventListener('KmpBridgeReady', init);
+  try { window.dispatchEvent(new Event('KmpBridgeReady')); } catch (e) {}
 })();
 """
