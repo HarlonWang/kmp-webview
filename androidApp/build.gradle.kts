@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.composeMultiplatform)
 }

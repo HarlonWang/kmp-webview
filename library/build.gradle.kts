@@ -1,4 +1,3 @@
-import com.android.build.api.dsl.androidLibrary
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
@@ -18,7 +17,7 @@ val frameworkName = "KmpWebView"
 val xcframework = XCFramework(frameworkName)
 
 kotlin {
-    androidLibrary {
+    android {
         namespace = "wang.harlon.webview"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
