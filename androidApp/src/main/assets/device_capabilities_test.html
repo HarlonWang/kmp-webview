@@ -48,6 +48,16 @@
     <video id="gumVideo" autoplay playsinline muted></video>
 </section>
 
+<section>
+    <h2>4. JSBridge</h2>
+    <button id="brEchoBtn">call: echo({hello:'world'})</button>
+    <button id="brInfoBtn">call: getDeviceInfo</button>
+    <button id="brErrBtn">call: missingHandler</button>
+    <div id="brOut" class="out">未调用</div>
+    <h2 style="margin-top:12px;">事件订阅（Native → JS）</h2>
+    <div id="brEventOut" class="out">未收到事件</div>
+</section>
+
 <script>
     function showFile(input, outId, previewId) {
         const file = input.files && input.files[0];
@@ -93,6 +103,46 @@
         }
         document.getElementById('gumVideo').srcObject = null;
         document.getElementById('gumOut').textContent = '已停止';
+    });
+
+    // ───────── JSBridge ─────────
+    const brOut = document.getElementById('brOut');
+    const brEventOut = document.getElementById('brEventOut');
+
+    function format(v) { try { return JSON.stringify(v, null, 2); } catch (e) { return String(v); } }
+
+    document.getElementById('brEchoBtn').addEventListener('click', async () => {
+        try {
+            const r = await KmpBridge.call('echo', { hello: 'world', t: Date.now() });
+            brOut.textContent = 'echo →\n' + format(r);
+        } catch (e) {
+            brOut.textContent = `失败 code=${e.code} msg=${e.message}`;
+        }
+    });
+
+    document.getElementById('brInfoBtn').addEventListener('click', async () => {
+        try {
+            const r = await KmpBridge.call('getDeviceInfo');
+            brOut.textContent = 'getDeviceInfo →\n' + format(r);
+        } catch (e) {
+            brOut.textContent = `失败 code=${e.code} msg=${e.message}`;
+        }
+    });
+
+    document.getElementById('brErrBtn').addEventListener('click', async () => {
+        try {
+            await KmpBridge.call('missingHandler');
+            brOut.textContent = '不应到达此处';
+        } catch (e) {
+            brOut.textContent = `预期失败 code=${e.code} msg=${e.message}`;
+        }
+    });
+
+    const events = [];
+    KmpBridge.on('demo.tick', payload => {
+        events.unshift(`tick: ${format(payload)}`);
+        if (events.length > 5) events.pop();
+        brEventOut.textContent = events.join('\n');
     });
 </script>
 </body>

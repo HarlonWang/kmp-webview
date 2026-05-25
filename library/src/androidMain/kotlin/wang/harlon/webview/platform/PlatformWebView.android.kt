@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import wang.harlon.webview.bridge.JsBridgeAndroidBinder
 import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
@@ -76,7 +77,12 @@ internal actual fun PlatformWebView(
                     mediaPlaybackRequiresUserGesture = false
                     applyUserAgent(this, config.userAgent)
                 }
-                wv.webViewClient = SdkWebViewClient(state)
+                val binder = JsBridgeAndroidBinder(wv, state.jsBridge)
+                webViewHolder.binder = binder
+                wv.webViewClient = SdkWebViewClient(
+                    state = state,
+                    onPageStartedExtra = { _, _ -> binder.injectShim() },
+                )
                 wv.webChromeClient = SdkWebChromeClient(
                     state = state,
                     config = config,
@@ -89,6 +95,8 @@ internal actual fun PlatformWebView(
         onRelease = { wv ->
             wv.stopLoading()
             wv.webChromeClient = null
+            webViewHolder.binder?.dispose()
+            webViewHolder.binder = null
             wv.destroy()
             webViewHolder.detach()
         },
@@ -123,6 +131,7 @@ private fun applyUserAgent(settings: WebSettings, strategy: UserAgentStrategy) {
 private class WebViewHolder {
     var webView: WebView? = null
         private set
+    var binder: JsBridgeAndroidBinder? = null
 
     fun attach(wv: WebView) { webView = wv }
     fun detach() { webView = null }

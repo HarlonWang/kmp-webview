@@ -19,6 +19,27 @@ fun MyScreen(onClose: () -> Unit) {
 
 可配置项见 [`WebViewConfig`](library/src/commonMain/kotlin/wang/harlon/webview/core/WebViewConfig.kt)：UA 策略、`allow*` 开关、错误页 slot、底部栏/进度条显隐。
 
+## JSBridge
+
+`WebViewState` 自带 `jsBridge` 实例，业务方注册 Native handler，JS 端通过 `window.KmpBridge` 调用：
+
+```kotlin
+val state = rememberWebViewState("https://example.com")
+state.jsBridge.registerHandler("getToken") { paramsJson ->
+    """{"token":"${authRepo.fetchToken()}"}"""
+}
+state.jsBridge.emit("auth.changed", """{"loggedIn":true}""")
+state.jsBridge.setAllowedOrigins(setOf("https://example.com", "https://*.example.com"))  // 可选
+```
+
+```js
+// JS 端
+const token = await KmpBridge.call('getToken', { scope: 'user' });
+const off = KmpBridge.on('auth.changed', payload => { /* ... */ });
+```
+
+handler 是 `suspend (String?) -> String?`，返回 JSON 字符串、抛 `JsBridgeException(code, message)` 透传错误码；不限制 JSON 库。详见 [设计文档](docs/superpowers/specs/2026-05-25-jsbridge-design.md)。
+
 ## 接入注意
 
 SDK 仅声明 `INTERNET`；相机/麦克风权限按需由业务方声明，避免污染未使用相机能力的应用上架权限描述。

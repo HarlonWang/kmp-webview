@@ -403,10 +403,12 @@ WebViewState 离开 Compose 组合
 - `library/src/commonMain/kotlin/wang/harlon/webview/bridge/JsBridge.kt`
 - `library/src/commonMain/kotlin/wang/harlon/webview/bridge/JsBridgeException.kt`
 - `library/src/commonMain/kotlin/wang/harlon/webview/bridge/KmpBridgeShim.kt`（垫片 JS 字符串常量）
-- `library/src/commonMain/kotlin/wang/harlon/webview/bridge/JsBridgeBinder.kt`（expect）
-- `library/src/androidMain/kotlin/wang/harlon/webview/bridge/JsBridgeBinder.android.kt`
-- `library/src/iosMain/kotlin/wang/harlon/webview/bridge/JsBridgeBinder.ios.kt`
+- `library/src/androidMain/kotlin/wang/harlon/webview/bridge/JsBridgeAndroidBinder.kt`
+- `library/src/iosMain/kotlin/wang/harlon/webview/bridge/JsBridgeIosBinder.kt`
 - `library/src/commonTest/kotlin/wang/harlon/webview/bridge/JsBridgeTest.kt`
+
+> 注：实现阶段去掉了 commonMain 的 `JsBridgeBinder.kt` expect 类——binder 仅在 platform-specific 的
+> `PlatformWebView.android.kt` / `.ios.kt` 实例化，commonMain 完全不需要引用它，expect/actual 反而是过度抽象。
 
 修改：
 - `library/src/commonMain/kotlin/wang/harlon/webview/core/WebViewState.kt` — 新增 `jsBridge` 字段，scope 集成

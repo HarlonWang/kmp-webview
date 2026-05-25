@@ -7,9 +7,12 @@ vanniktechMavenPublish = "0.36.0"
 compose = "1.11.0"
 androidxActivityCompose = "1.13.0"
 androidxCore = "1.18.0"
+kotlinxCoroutines = "1.10.2"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
 androidx-core = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 
