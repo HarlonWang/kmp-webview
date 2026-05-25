@@ -9,7 +9,14 @@ import kotlinx.coroutines.launch
 
 class JsBridge internal constructor(
     private val scope: CoroutineScope,
+    internal val namespace: String,
 ) {
+
+    init {
+        require(VALID_JS_IDENT.matches(namespace)) {
+            "bridgeNamespace must be a valid JS identifier: '$namespace'"
+        }
+    }
 
     private val handlers = mutableMapOf<String, suspend (String?) -> String?>()
     private var allowedOrigins: Set<String>? = null
@@ -28,7 +35,7 @@ class JsBridge internal constructor(
 
     fun emit(event: String, payloadJson: String? = null) {
         val payloadLit = if (payloadJson == null) "null" else jsonQuote(payloadJson)
-        evaluate("window.KmpBridge && window.KmpBridge.__emit(${jsonQuote(event)}, $payloadLit)")
+        evaluate("window.$namespace && window.$namespace.__emit(${jsonQuote(event)}, $payloadLit)")
     }
 
     fun setAllowedOrigins(origins: Set<String>?) {
@@ -84,7 +91,7 @@ class JsBridge internal constructor(
 
     private fun resolve(id: Long, ok: Boolean, payloadJson: String?) {
         val payloadLit = if (payloadJson == null) "null" else jsonQuote(payloadJson)
-        evaluate("window.KmpBridge && window.KmpBridge.__resolve($id, $ok, $payloadLit)")
+        evaluate("window.$namespace && window.$namespace.__resolve($id, $ok, $payloadLit)")
     }
 
     private fun evaluate(js: String) {
@@ -97,10 +104,14 @@ class JsBridge internal constructor(
     }
 
     internal companion object {
-        internal fun create(scope: CoroutineScope): JsBridge = JsBridge(scope)
+        // JS 标识符规则；namespace 拼到 JS 源码字面里，非法值会导致 SyntaxError，构造期 fail-fast。
+        private val VALID_JS_IDENT = Regex("^[A-Za-z_$][A-Za-z0-9_$]*$")
 
-        internal fun createForTest(): JsBridge =
-            JsBridge(CoroutineScope(SupervisorJob() + Dispatchers.Main))
+        internal fun create(scope: CoroutineScope, namespace: String): JsBridge =
+            JsBridge(scope, namespace)
+
+        internal fun createForTest(namespace: String = "KmpBridge"): JsBridge =
+            JsBridge(CoroutineScope(SupervisorJob() + Dispatchers.Main), namespace)
     }
 }
 

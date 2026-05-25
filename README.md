@@ -40,6 +40,24 @@ const off = KmpBridge.on('auth.changed', payload => { /* ... */ });
 
 handler 是 `suspend (String?) -> String?`，返回 JSON 字符串、抛 `JsBridgeException(code, message)` 透传错误码；不限制 JSON 库。详见 [设计文档](docs/superpowers/specs/2026-05-25-jsbridge-design.md)。
 
+### 自定义命名（可选）
+
+默认 JS 入口 `window.KmpBridge`、就绪事件 `KmpBridgeReady`。多 App 共享 SDK、回避 H5 上已被占用的默认名、对接既有 H5 协议等场景，可在 `rememberWebViewState` 传入自定义 namespace：
+
+```kotlin
+val state = rememberWebViewState(
+    initialUrl = "https://example.com",
+    bridgeNamespace = "CustomBridge",
+)
+```
+
+```js
+const user = await window.CustomBridge.call('getUserInfo', null);
+window.addEventListener('CustomBridgeReady', () => { /* bridge 就绪 */ });
+```
+
+需是合法 JS 标识符（`[A-Za-z_$][A-Za-z0-9_$]*`），非法值在构造期抛 `IllegalArgumentException`。Native 消息通道名由此值派生为 `__{首字母小写}Native`（例如 `CustomBridge` → `__customBridgeNative`），暂不开放单独自定义。详见 [设计文档](docs/superpowers/specs/2026-05-25-jsbridge-custom-naming-design.md)。
+
 ## 接入注意
 
 SDK 仅声明 `INTERNET`；相机/麦克风权限按需由业务方声明，避免污染未使用相机能力的应用上架权限描述。

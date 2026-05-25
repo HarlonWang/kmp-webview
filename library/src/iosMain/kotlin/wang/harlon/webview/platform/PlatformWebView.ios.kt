@@ -47,7 +47,11 @@ internal actual fun PlatformWebView(
             if (config.enableRemoteDebugging) {
                 webView.applyInspectableIfAvailable(true)
             }
-            binderHolder.binder = JsBridgeIosBinder(webView, state.jsBridge)
+            binderHolder.binder = JsBridgeIosBinder(
+                webView = webView,
+                bridge = state.jsBridge,
+                channel = state.bridgeChannel,
+            )
             coordinator.bind(webView)
             webView
         },

@@ -10,22 +10,22 @@ import platform.WebKit.WKUserScriptInjectionTime
 import platform.WebKit.WKWebView
 import platform.darwin.NSObject
 
-private const val CHANNEL_NAME = "__kmpBridgeNative"
-
 @OptIn(ExperimentalForeignApi::class)
 internal class JsBridgeIosBinder(
     private val webView: WKWebView,
     private val bridge: JsBridge,
+    private val channel: String,
 ) : NSObject(), WKScriptMessageHandlerProtocol {
 
     init {
+        // channel 由 WebViewState 从 bridgeNamespace 派生，合法性由 namespace 校验链保证，此处不再重复 require。
         val ucc = webView.configuration.userContentController
         ucc.addUserScript(WKUserScript(
-            source = KMP_BRIDGE_SHIM_JS,
+            source = buildKmpBridgeShim(bridge.namespace, channel),
             injectionTime = WKUserScriptInjectionTime.WKUserScriptInjectionTimeAtDocumentStart,
             forMainFrameOnly = true,
         ))
-        ucc.addScriptMessageHandler(this, name = CHANNEL_NAME)
+        ucc.addScriptMessageHandler(this, name = channel)
         bridge.attachEvaluator { js ->
             // evaluateJavaScript 必须在主线程；scriptMessage 回调本身就在主线程，
             // 但 Native → JS 的 emit 可能从任意线程来，统一派发到 main。
@@ -45,7 +45,7 @@ internal class JsBridgeIosBinder(
 
     fun dispose() {
         webView.configuration.userContentController
-            .removeScriptMessageHandlerForName(CHANNEL_NAME)
+            .removeScriptMessageHandlerForName(channel)
         bridge.detachEvaluator()
     }
 }

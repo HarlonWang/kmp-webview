@@ -14,6 +14,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
@@ -39,8 +41,11 @@ class JsBridgeTest {
         Dispatchers.resetMain()
     }
 
-    private fun newBridge(recorder: EvaluatorRecorder = EvaluatorRecorder()): Pair<JsBridge, EvaluatorRecorder> {
-        val bridge = JsBridge.createForTest()
+    private fun newBridge(
+        namespace: String = "KmpBridge",
+        recorder: EvaluatorRecorder = EvaluatorRecorder(),
+    ): Pair<JsBridge, EvaluatorRecorder> {
+        val bridge = JsBridge.createForTest(namespace)
         bridge.attachEvaluator(recorder.asLambda)
         return bridge to recorder
     }
@@ -289,7 +294,7 @@ class JsBridgeTest {
     @Test
     fun detachedEvaluatorSuppressesResolveAndEmit() = runTest {
         val recorder = EvaluatorRecorder()
-        val (bridge, _) = newBridge(recorder)
+        val (bridge, _) = newBridge(recorder = recorder)
         bridge.registerHandler("m") { "\"v\"" }
         bridge.detachEvaluator()
 
@@ -338,5 +343,73 @@ class JsBridgeTest {
             "\"{\\\"code\\\":\\\"HANDLER_ERROR\\\",\\\"message\\\":" +
             "\\\"bad \\\\\\\"quoted\\\\\\\" value\\\"}\")"
         assertEquals(expected, recorder.calls.single())
+    }
+
+    // ───────── 自定义 namespace ─────────
+
+    @Test
+    fun customNamespaceEmitTargetsCustomGlobal() {
+        val (bridge, recorder) = newBridge(namespace = "CustomBridge")
+
+        bridge.emit("ping")
+
+        assertEquals(
+            """window.CustomBridge && window.CustomBridge.__emit("ping", null)""",
+            recorder.calls.single(),
+        )
+    }
+
+    @Test
+    fun customNamespaceResolveTargetsCustomGlobal() = runTest {
+        val (bridge, recorder) = newBridge(namespace = "CustomBridge")
+        bridge.registerHandler("m") { "\"ok\"" }
+
+        bridge.dispatchIncoming("""{"id":9,"method":"m","params":null}""") { "https://x.com" }
+        advanceUntilIdle()
+
+        val js = recorder.calls.single()
+        assertTrue("window.CustomBridge && window.CustomBridge.__resolve(9, true" in js, js)
+        assertFalse("KmpBridge" in js, "默认 namespace 字面量不应出现: $js")
+    }
+
+    @Test
+    fun invalidNamespaceThrowsAtConstruction() {
+        assertFailsWith<IllegalArgumentException> { JsBridge.createForTest("foo-bar") }
+        assertFailsWith<IllegalArgumentException> { JsBridge.createForTest("1foo") }
+        assertFailsWith<IllegalArgumentException> { JsBridge.createForTest("") }
+        assertFailsWith<IllegalArgumentException> { JsBridge.createForTest("foo bar") }
+        assertFailsWith<IllegalArgumentException> { JsBridge.createForTest("foo.bar") }
+    }
+
+    @Test
+    fun validNamespaceVariantsAreAccepted() {
+        // 合法的边界形态——字母 / 下划线 / `$` 起始 + 数字
+        JsBridge.createForTest("KmpBridge")
+        JsBridge.createForTest("_internal")
+        JsBridge.createForTest("\$bridge")
+        JsBridge.createForTest("Bridge2")
+    }
+
+    @Test
+    fun multipleBridgesWithDifferentNamespacesDoNotInterfere() = runTest {
+        val recA = EvaluatorRecorder()
+        val (a, _) = newBridge(namespace = "BridgeA", recorder = recA)
+        val recB = EvaluatorRecorder()
+        val (b, _) = newBridge(namespace = "BridgeB", recorder = recB)
+
+        a.registerHandler("only-a") { "\"a\"" }
+        b.registerHandler("only-b") { "\"b\"" }
+
+        // a 收到的请求只走 a 的 handler 表 + a 的 namespace
+        a.dispatchIncoming("""{"id":1,"method":"only-b","params":null}""") { "https://x.com" }
+        advanceUntilIdle()
+        val aJs = recA.calls.single()
+        assertTrue("window.BridgeA" in aJs, aJs)
+        assertTrue("HANDLER_NOT_FOUND" in aJs, "BridgeA 不应有 only-b: $aJs")
+
+        // b emit 用 b 的 namespace，且不污染 a 的 recorder
+        b.emit("e")
+        assertEquals(1, recA.calls.size, "BridgeB 的 emit 不应进 BridgeA recorder")
+        assertEquals("""window.BridgeB && window.BridgeB.__emit("e", null)""", recB.calls.single())
     }
 }
