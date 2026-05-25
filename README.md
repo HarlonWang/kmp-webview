@@ -40,6 +40,8 @@ const off = KmpBridge.on('auth.changed', payload => { /* ... */ });
 
 handler 是 `suspend (String?) -> String?`，返回 JSON 字符串、抛 `JsBridgeException(code, message)` 透传错误码；不限制 JSON 库。详见 [设计文档](docs/superpowers/specs/2026-05-25-jsbridge-design.md)。
 
+前端 H5 侧的使用说明详见 [docs/frontend-bridge.md](docs/frontend-bridge.md)。
+
 ### 自定义命名（可选）
 
 默认 JS 入口 `window.KmpBridge`、就绪事件 `KmpBridgeReady`。多 App 共享 SDK、回避 H5 上已被占用的默认名、对接既有 H5 协议等场景，可在 `rememberWebViewState` 传入自定义 namespace：
