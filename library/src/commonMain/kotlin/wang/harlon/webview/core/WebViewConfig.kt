@@ -10,5 +10,7 @@ data class WebViewConfig(
     val allowFileChooser: Boolean = true,
     val allowCameraCapture: Boolean = true,
     val allowMediaCapture: Boolean = true,
+    // Android setWebContentsDebuggingEnabled 是进程级开关 / iOS isInspectable 仅 16.4+；release 应留 false
+    val enableRemoteDebugging: Boolean = false,
     val errorContent: (@Composable (LoadingState.Error, retry: () -> Unit) -> Unit)? = null,
 )

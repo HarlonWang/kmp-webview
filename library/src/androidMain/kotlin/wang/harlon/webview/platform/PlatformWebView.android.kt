@@ -65,6 +65,10 @@ internal actual fun PlatformWebView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
+            // 进程级开关——只调一次即生效；多 WebView 共存时任一 config 为 true 即整体启用
+            if (config.enableRemoteDebugging) {
+                WebView.setWebContentsDebuggingEnabled(true)
+            }
             WebView(ctx).also { wv ->
                 wv.settings.apply {
                     javaScriptEnabled = true
