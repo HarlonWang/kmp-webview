@@ -19,3 +19,6 @@ xcuserdata/
 DerivedData/
 Pods/
 *.xcworkspace/xcuserdata/
+
+# Claude Code harness
+/.claude/

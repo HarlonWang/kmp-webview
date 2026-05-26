@@ -14,6 +14,7 @@ import platform.WebKit.WKAudiovisualMediaTypeNone
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 import platform.darwin.NSObject
+import wang.harlon.webview.bridge.JsBridgeIosBinder
 import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
@@ -27,6 +28,7 @@ internal actual fun PlatformWebView(
     modifier: Modifier,
 ) {
     val coordinator = remember(config) { WebViewCoordinator(state, config) }
+    val binderHolder = remember { BinderHolder() }
 
     UIKitView(
         modifier = modifier,
@@ -45,10 +47,17 @@ internal actual fun PlatformWebView(
             if (config.enableRemoteDebugging) {
                 webView.applyInspectableIfAvailable(true)
             }
+            binderHolder.binder = JsBridgeIosBinder(
+                webView = webView,
+                bridge = state.jsBridge,
+                channel = state.bridgeChannel,
+            )
             coordinator.bind(webView)
             webView
         },
         onRelease = {
+            binderHolder.binder?.dispose()
+            binderHolder.binder = null
             coordinator.dispose()
         },
     )
@@ -75,6 +84,10 @@ internal actual fun PlatformWebView(
     DisposableEffect(coordinator) {
         onDispose { coordinator.dispose() }
     }
+}
+
+private class BinderHolder {
+    var binder: JsBridgeIosBinder? = null
 }
 
 /**

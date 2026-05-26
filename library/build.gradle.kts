@@ -56,6 +56,7 @@ kotlin {
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.materialIconsExtended)
+            implementation(libs.kotlinx.coroutines.core)
         }
 
         androidMain.dependencies {
@@ -65,6 +66,7 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

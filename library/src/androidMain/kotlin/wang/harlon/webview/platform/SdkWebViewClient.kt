@@ -9,11 +9,15 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import wang.harlon.webview.core.WebViewState
 
-internal class SdkWebViewClient(private val state: WebViewState) : WebViewClient() {
+internal class SdkWebViewClient(
+    private val state: WebViewState,
+    private val onPageStartedExtra: ((WebView, String?) -> Unit)? = null,
+) : WebViewClient() {
 
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         state.onLoadStarted(url)
         state.onNavigationChanged(view.canGoBack(), view.canGoForward())
+        onPageStartedExtra?.invoke(view, url)
     }
 
     override fun onPageFinished(view: WebView, url: String?) {

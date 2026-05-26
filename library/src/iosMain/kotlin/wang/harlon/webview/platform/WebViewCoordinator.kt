@@ -36,6 +36,12 @@ internal class WebViewCoordinator(
                     webView.customUserAgent = current + strategy.suffix
                 }
             }
+            is UserAgentStrategy.Prefix -> {
+                webView.evaluateJavaScript("navigator.userAgent") { result, _ ->
+                    val current = (result as? String).orEmpty()
+                    webView.customUserAgent = strategy.prefix + current
+                }
+            }
         }
     }
 
