@@ -126,6 +126,9 @@ private fun applyUserAgent(settings: WebSettings, strategy: UserAgentStrategy) {
         is UserAgentStrategy.Append -> {
             settings.userAgentString = settings.userAgentString.orEmpty() + strategy.suffix
         }
+        is UserAgentStrategy.Prefix -> {
+            settings.userAgentString = strategy.prefix + settings.userAgentString.orEmpty()
+        }
         is UserAgentStrategy.Override -> {
             settings.userAgentString = strategy.value
         }
