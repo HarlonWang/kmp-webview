@@ -6,6 +6,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,7 +66,13 @@ internal actual fun PlatformWebView(
     }
 
     AndroidView(
-        modifier = modifier,
+        // imePadding 收缩 AndroidView 可用尺寸 = IME 高度，让出空间给软键盘。
+        // Activity 走 enableEdgeToEdge() 后 decorFitsSystemWindows=false，旧的
+        // windowSoftInputMode=adjustResize 已失效，必须由内容主动消费 IME inset。
+        // 与 [SdkWebViewClient] 注入的 KeyboardScrollPolyfill 配对：imePadding 让
+        // visualViewport.height 真正收缩（M139 以下内核不会自己 resize vv），
+        // polyfill 收到 vv.resize 后才能算出焦点 input 被遮挡 → scrollIntoView。
+        modifier = modifier.imePadding(),
         factory = { ctx ->
             // 进程级开关——只调一次即生效；多 WebView 共存时任一 config 为 true 即整体启用
             if (config.enableRemoteDebugging) {

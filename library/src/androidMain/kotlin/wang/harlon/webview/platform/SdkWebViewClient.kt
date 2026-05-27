@@ -17,6 +17,7 @@ internal class SdkWebViewClient(
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
         state.onLoadStarted(url)
         state.onNavigationChanged(view.canGoBack(), view.canGoForward())
+        view.injectKeyboardScrollPolyfill()
         onPageStartedExtra?.invoke(view, url)
     }
 
