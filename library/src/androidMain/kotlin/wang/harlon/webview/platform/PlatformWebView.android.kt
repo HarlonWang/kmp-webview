@@ -1,6 +1,7 @@
 package wang.harlon.webview.platform
 
 import android.annotation.SuppressLint
+import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,6 +72,12 @@ internal actual fun PlatformWebView(
                 WebView.setWebContentsDebuggingEnabled(true)
             }
             WebView(ctx).also { wv ->
+                // 显式 MATCH_PARENT：WebView 默认 LayoutParams 是 WRAP_CONTENT，与 SPA 用
+                // `height: 100vh / 100%` 的 CSS 互相依赖会算出 viewport h=0，整页空白。
+                wv.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
                 wv.settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
