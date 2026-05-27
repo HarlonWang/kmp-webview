@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!--
+      interactive-widget=resizes-content：显式声明键盘弹起后视口随之缩小（M139+ / iOS 17.4+）。
+      想测"不带 hint 时的默认行为"复制本页并把这一段改回 width=device-width, initial-scale=1.0。
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <title>键盘测试</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, sans-serif;
+            margin: 0;
+            padding: 16px 16px 80px;
+            line-height: 1.6;
+            background: #fafafa;
+        }
+        h1 { font-size: 18px; margin: 0 0 8px; }
+        h2 { font-size: 15px; margin: 0 0 8px; color: #333; }
+        section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            background: #fff;
+        }
+        input[type=text], textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type=text]:focus, textarea:focus { border-color: #2962ff; }
+        textarea { min-height: 96px; resize: vertical; }
+        .hint { color: #888; font-size: 12px; margin-top: 6px; }
+        .filler {
+            background: linear-gradient(180deg, #eef 0%, #fee 100%);
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        .filler .spacer { height: 320px; }
+
+        /* 右上角悬浮诊断面板：实时显示 visualViewport / 焦点元素位置 */
+        .diag {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #0f0;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 9999;
+            pointer-events: none;
+            white-space: pre;
+            max-width: 60vw;
+        }
+
+        /* 场景 5：position:fixed 仿聊天底栏 */
+        .chat-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #f8f8f8;
+            border-top: 1px solid #ccc;
+            padding: 8px;
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+        }
+        .chat-bar input {
+            flex: 1;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+        }
+        .chat-bar button {
+            background: #2962ff;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="diag" class="diag">diag…</div>
+
+<h1>键盘行为测试</h1>
+<p class="hint">点下方按钮自动 focus 对应输入框（adb tap 命中 WebView 内输入框不稳，按钮统一走 JS focus）。</p>
+
+<!-- 测试入口按钮（垂直大尺寸，每按钮独占一行 height>=60px，便于 adb input tap） -->
+<section id="btnPanel" style="display:flex; flex-direction:column; gap:6px;">
+    <button onclick="focusTarget('top')" style="padding:16px;font-size:15px;text-align:left;">F① 聚焦顶部 input</button>
+    <button onclick="focusTarget('middle')" style="padding:16px;font-size:15px;text-align:left;">F② 聚焦中段 input</button>
+    <button onclick="focusTarget('textarea')" style="padding:16px;font-size:15px;text-align:left;">F③ 聚焦 textarea</button>
+    <button onclick="focusTarget('bottom')" style="padding:16px;font-size:15px;text-align:left;">F④ 聚焦尾部 input</button>
+    <button onclick="focusTarget('chat')" style="padding:16px;font-size:15px;text-align:left;">F⑤ 聚焦 fixed 底栏 input</button>
+</section>
+
+<section>
+    <h2>① 页面顶部 input（普通流）</h2>
+    <input id="inp-top" type="text" placeholder="顶部输入框">
+    <div class="hint">预期：本来就在视口上方，键盘弹起不影响</div>
+</section>
+
+<section class="filler">
+    ↓ 中间填充，把后续场景推到屏幕下半部 ↓
+    <div class="spacer"></div>
+    ↑ 中间填充结束 ↑
+</section>
+
+<section>
+    <h2>② 页面中段 input（聚焦后会被键盘遮住的位置）</h2>
+    <input id="inp-middle" type="text" placeholder="中段输入框">
+    <div class="hint">预期：WebView 自动滚动，把它顶到键盘之上不遮挡</div>
+</section>
+
+<section>
+    <h2>③ 多行 textarea（光标行可见性）</h2>
+    <textarea id="inp-textarea" placeholder="逐行回车，光标行应始终保持可见"></textarea>
+    <div class="hint">预期：聚焦时整个 textarea 滚出；连续回车时光标行应保持可见</div>
+</section>
+
+<section>
+    <h2>④ 页面尾部 input（最底端，紧贴 fixed 底栏上方）</h2>
+    <input id="inp-bottom" type="text" placeholder="尾部输入框">
+    <div class="hint">预期：滚出到键盘上方</div>
+</section>
+
+<!-- 场景 ⑤：position:fixed 底栏（仿聊天框）-->
+<div class="chat-bar">
+    <input type="text" id="inp-chat" placeholder="⑤ fixed 底栏（仿聊天框）">
+    <button>发送</button>
+</div>
+
+<script>
+    // 给按钮调用：按 id focus 对应输入框
+    function focusTarget(key) {
+        beacon('btn_' + key);
+        const el = document.getElementById('inp-' + key);
+        if (el) {
+            el.focus({ preventScroll: true });  // 不让浏览器默认滚动，纯看 polyfill 行为
+        }
+        // 延迟 1.5s 等键盘稳定再发一次（拿到真实 vv.h / focus 位置）
+        setTimeout(() => beacon('settle_' + key), 1500);
+    }
+
+    // 把诊断数据 GET 到 HTTP server，从 server access log 里读
+    // （截图依赖被会话图片配额阻塞，这是诊断 fallback）
+    function beacon(tag) {
+        try {
+            const vv = window.visualViewport;
+            const ae = document.activeElement;
+            const r = (ae && ae !== document.body && ae.tagName !== 'HTML')
+                ? ae.getBoundingClientRect() : null;
+            const params = new URLSearchParams({
+                tag,
+                inner_h: window.innerHeight,
+                vv_h: vv ? Math.round(vv.height) : -1,
+                vv_offT: vv ? Math.round(vv.offsetTop) : -1,
+                focus_tag: ae ? ae.tagName : '',
+                focus_id: ae ? (ae.id || '') : '',
+                focus_top: r ? Math.round(r.top) : -1,
+                focus_bot: r ? Math.round(r.bottom) : -1,
+                page_y: Math.round(window.pageYOffset || 0),
+            });
+            // 用 image.src 避免 CORS preflight 干扰
+            new Image().src = '/beacon?' + params.toString() + '&t=' + Date.now();
+        } catch (e) {}
+    }
+
+    // 实时诊断：visualViewport 尺寸 + 焦点元素 rect。用来判断
+    // "WebView 是否真的把 viewport 缩了"以及"焦点元素到底滚到了哪"。
+    const diag = document.getElementById('diag');
+    function update() {
+        const vv = window.visualViewport;
+        const ae = document.activeElement;
+        let focus = '';
+        if (ae && ae !== document.body && ae.tagName !== 'HTML') {
+            const r = ae.getBoundingClientRect();
+            focus = `\nfocus.tag=${ae.tagName}` +
+                    `\nfocus.top=${r.top.toFixed(0)}` +
+                    `\nfocus.bot=${r.bottom.toFixed(0)}`;
+        }
+        diag.textContent =
+            `inner.h=${window.innerHeight}` +
+            (vv ? `\nvv.h=${vv.height.toFixed(0)}` +
+                  `\nvv.offT=${vv.offsetTop.toFixed(0)}` +
+                  `\nvv.scale=${vv.scale.toFixed(2)}` : '\nvv=n/a') +
+            focus;
+    }
+    update();
+    if (window.visualViewport) {
+        visualViewport.addEventListener('resize', update);
+        visualViewport.addEventListener('scroll', update);
+    }
+    window.addEventListener('resize', update);
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
+    // 兜底轮询：某些 case 下 resize 不触发
+    setInterval(update, 400);
+</script>
+
+</body>
+</html>
