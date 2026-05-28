@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import wang.harlon.webview.bridge.JsBridge
+import wang.harlon.webview.logpanel.LogStore
+import wang.harlon.webview.logpanel.WebViewEnvironment
 
 class WebViewState internal constructor(
     initialUrl: String,
@@ -43,6 +45,35 @@ class WebViewState internal constructor(
      * 生命周期与 WebViewState 一致；WebView 重建时配置不丢失。
      */
     val jsBridge: JsBridge = JsBridge.create(bridgeScope, bridgeNamespace)
+
+    /**
+     * 日志面板的中央 store；`WebViewConfig.enableLogPanel = true` 时由 [WebViewScreen] 在
+     * 首次组合时通过 [enableLogPanel] 创建并 attach 到 [jsBridge]。
+     *
+     * 关闭路径下保持 null，所有采集点 `state.logStore?.append(...)` 单次 null 检查短路。
+     * 开关运行期只读取一次，不支持运行时切换。
+     */
+    internal var logStore: LogStore? = null
+        private set
+
+    /**
+     * 日志面板 Environment 区域展示用；由各端 PlatformWebView 在 WebView 创建后
+     * 通过 `capture...Environment` 函数写入。iOS UA 异步获取，第一次写入时
+     * `webViewVersion` 可能仍为 null，后续到达时整个对象被替换。
+     */
+    internal var environment: WebViewEnvironment? by mutableStateOf(null)
+        private set
+
+    internal fun enableLogPanel() {
+        if (logStore != null) return
+        val store = LogStore(scope = bridgeScope)
+        logStore = store
+        jsBridge.attachLogStore(store)
+    }
+
+    internal fun setEnvironment(env: WebViewEnvironment) {
+        environment = env
+    }
 
     internal var pendingCommand: WebViewCommand? by mutableStateOf(WebViewCommand.LoadUrl(initialUrl))
         private set

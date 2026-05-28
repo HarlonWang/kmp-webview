@@ -6,6 +6,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import wang.harlon.webview.logpanel.LogStore
+import wang.harlon.webview.logpanel.WebViewLog
 
 class JsBridge internal constructor(
     private val scope: CoroutineScope,
@@ -21,6 +25,7 @@ class JsBridge internal constructor(
     private val handlers = mutableMapOf<String, suspend (String?) -> String?>()
     private var allowedOrigins: Set<String>? = null
     private var evaluator: ((String) -> Unit)? = null
+    private var logStore: LogStore? = null
 
     fun registerHandler(method: String, handler: suspend (String?) -> String?) {
         if (handlers.containsKey(method)) {
@@ -36,6 +41,16 @@ class JsBridge internal constructor(
     fun emit(event: String, payloadJson: String? = null) {
         val payloadLit = if (payloadJson == null) "null" else jsonQuote(payloadJson)
         evaluate("window.$namespace && window.$namespace.__emit(${jsonQuote(event)}, $payloadLit)")
+        logStore?.let { store ->
+            scope.launch {
+                store.append(
+                    source = WebViewLog.Source.JsBridge,
+                    level = WebViewLog.Level.Info,
+                    message = "emit $event",
+                    detail = payloadJson?.let { "payload: $it" },
+                )
+            }
+        }
     }
 
     fun setAllowedOrigins(origins: Set<String>?) {
@@ -52,6 +67,12 @@ class JsBridge internal constructor(
         evaluator = null
     }
 
+    /** 由 [wang.harlon.webview.core.WebViewState.enableLogPanel] 注入；构造后调用一次即可。 */
+    internal fun attachLogStore(store: LogStore) {
+        logStore = store
+    }
+
+    @OptIn(ExperimentalTime::class)
     internal fun dispatchIncoming(envelopeJson: String, originProvider: () -> String?) {
         val env = parseEnvelope(envelopeJson) ?: return
 
@@ -60,6 +81,7 @@ class JsBridge internal constructor(
             val origin = originProvider()?.let(::extractOrigin)
             if (origin == null || !originMatches(origin, whitelist)) {
                 resolve(env.id, ok = false, errorJson("ORIGIN_DENIED", "origin not allowed"))
+                logBridge(env.method, env.params, "ORIGIN_DENIED", null)
                 return
             }
         }
@@ -67,21 +89,53 @@ class JsBridge internal constructor(
         val handler = handlers[env.method]
         if (handler == null) {
             resolve(env.id, ok = false, errorJson("HANDLER_NOT_FOUND", "no handler for ${env.method}"))
+            logBridge(env.method, env.params, "HANDLER_NOT_FOUND", null)
             return
         }
 
+        val started = Clock.System.now().toEpochMilliseconds()
         scope.launch {
             try {
                 val result = handler(env.params)
                 resolve(env.id, ok = true, result)
+                logBridge(env.method, env.params, null, result, started)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: JsBridgeException) {
                 resolve(env.id, ok = false, errorJson(e.code, e.message))
+                logBridge(env.method, env.params, e.code, null, started)
             } catch (e: Throwable) {
                 resolve(env.id, ok = false, errorJson("HANDLER_ERROR", e.message))
+                logBridge(env.method, env.params, "HANDLER_ERROR", e.message, started)
             }
         }
+    }
+
+    @OptIn(ExperimentalTime::class)
+    private fun logBridge(
+        method: String,
+        params: String?,
+        errorCode: String?,
+        result: String?,
+        startedAt: Long? = null,
+    ) {
+        val store = logStore ?: return
+        val elapsed = startedAt?.let { Clock.System.now().toEpochMilliseconds() - it }
+        val tag = if (elapsed != null) " (${elapsed}ms)" else ""
+        val msg: String
+        val level: WebViewLog.Level
+        if (errorCode == null) {
+            msg = "call $method$tag"
+            level = WebViewLog.Level.Info
+        } else {
+            msg = "call $method failed [$errorCode]$tag"
+            level = WebViewLog.Level.Error
+        }
+        val detail = buildString {
+            append("params: ").append(params ?: "null")
+            if (result != null) append("\nresult: ").append(result)
+        }
+        scope.launch { store.append(WebViewLog.Source.JsBridge, level, msg, detail) }
     }
 
     /** WebViewState 离开组合时调，取消 scope 内所有 handler 协程。 */

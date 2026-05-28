@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import wang.harlon.webview.core.LoadingState
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
+import wang.harlon.webview.logpanel.ui.LogPanelHost
 import wang.harlon.webview.platform.PlatformWebView
 import wang.harlon.webview.ui.DefaultErrorView
 import wang.harlon.webview.ui.WebViewBottomBar
@@ -47,6 +48,15 @@ fun WebViewScreen(
             if (current is LoadingState.Error) {
                 val renderer = config.errorContent ?: { e, retry -> DefaultErrorView(e, retry) }
                 renderer(current) { state.reload() }
+            }
+            // PlatformWebView 在 factory 内已调 state.enableLogPanel()，store 此时已就绪；
+            // 关闭路径下 logStore 为 null，整个 LogPanelHost 不参与组合。
+            state.logStore?.let { store ->
+                LogPanelHost(
+                    store = store,
+                    environment = state.environment,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }

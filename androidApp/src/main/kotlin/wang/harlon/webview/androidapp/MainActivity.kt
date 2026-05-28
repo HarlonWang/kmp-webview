@@ -89,6 +89,7 @@ private fun DemoApp(onClose: () -> Unit) {
                 UrlBar(state = state)
                 WebViewScreen(
                     state = state,
+                    config = wang.harlon.webview.core.WebViewConfig(enableLogPanel = true),
                     onCloseRequest = onClose,
                     modifier = Modifier.weight(1f),
                 )
