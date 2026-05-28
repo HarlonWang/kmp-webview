@@ -1,11 +1,13 @@
 package wang.harlon.webview.logpanel.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -15,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -35,7 +39,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import wang.harlon.webview.logpanel.WebViewEnvironment
 import wang.harlon.webview.logpanel.WebViewLog
 
 /**
@@ -53,6 +59,7 @@ import wang.harlon.webview.logpanel.WebViewLog
 @Composable
 internal fun LogPanelDrawer(
     entries: List<WebViewLog>,
+    environment: WebViewEnvironment?,
     onClose: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -87,6 +94,9 @@ internal fun LogPanelDrawer(
                     Icon(Icons.Filled.Close, contentDescription = "Close")
                 }
             }
+
+            // Environment 折叠区——元信息，跟日志数据分离；Clear 不影响。
+            EnvironmentSection(environment)
 
             // 过滤 chips
             Row(
@@ -172,6 +182,59 @@ internal fun LogPanelDrawer(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EnvironmentSection(env: WebViewEnvironment?) {
+    if (env == null) return
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse environment" else "Expand environment",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "Environment",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+        if (expanded) {
+            Column(modifier = Modifier.padding(start = 24.dp, bottom = 4.dp)) {
+                EnvLine("UA", env.userAgent)
+                env.webViewVersion?.let { EnvLine("WebView", it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnvLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.padding(vertical = 2.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(72.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+        )
     }
 }
 

@@ -20,6 +20,7 @@ import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
 import wang.harlon.webview.logpanel.LogJsBridgeAndroidBinder
+import wang.harlon.webview.logpanel.captureAndroidEnvironment
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -102,6 +103,8 @@ internal actual fun PlatformWebView(
                 webViewHolder.binder = binder
                 val logBinder = state.logStore?.let { LogJsBridgeAndroidBinder(wv, it) }
                 webViewHolder.logBinder = logBinder
+                // 仅在面板启用时采集 environment；关闭路径下不读 settings/PackageManager。
+                if (state.logStore != null) captureAndroidEnvironment(wv, state)
                 wv.webViewClient = SdkWebViewClient(
                     state = state,
                     onPageStartedExtra = { _, _ ->

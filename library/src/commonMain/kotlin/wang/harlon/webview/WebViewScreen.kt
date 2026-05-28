@@ -52,7 +52,11 @@ fun WebViewScreen(
             // PlatformWebView 在 factory 内已调 state.enableLogPanel()，store 此时已就绪；
             // 关闭路径下 logStore 为 null，整个 LogPanelHost 不参与组合。
             state.logStore?.let { store ->
-                LogPanelHost(store, modifier = Modifier.fillMaxSize())
+                LogPanelHost(
+                    store = store,
+                    environment = state.environment,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }

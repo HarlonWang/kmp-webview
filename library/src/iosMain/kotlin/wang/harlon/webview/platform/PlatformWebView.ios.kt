@@ -20,6 +20,7 @@ import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
 import wang.harlon.webview.logpanel.LogIosBinder
+import wang.harlon.webview.logpanel.captureIosEnvironment
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -55,6 +56,7 @@ internal actual fun PlatformWebView(
                 channel = state.bridgeChannel,
             )
             binderHolder.logBinder = state.logStore?.let { LogIosBinder(webView, it) }
+            if (state.logStore != null) captureIosEnvironment(webView, state)
             coordinator.bind(webView)
             webView
         },

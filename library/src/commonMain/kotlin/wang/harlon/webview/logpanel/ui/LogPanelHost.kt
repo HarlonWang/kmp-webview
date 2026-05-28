@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import wang.harlon.webview.logpanel.LogStore
+import wang.harlon.webview.logpanel.WebViewEnvironment
 import wang.harlon.webview.logpanel.WebViewLog
 
 /**
@@ -23,6 +24,7 @@ import wang.harlon.webview.logpanel.WebViewLog
 @Composable
 internal fun LogPanelHost(
     store: LogStore,
+    environment: WebViewEnvironment?,
     modifier: Modifier = Modifier,
 ) {
     val entries by store.entries.collectAsState()
@@ -42,6 +44,7 @@ internal fun LogPanelHost(
         if (open) {
             LogPanelDrawer(
                 entries = entries,
+                environment = environment,
                 onClose = {
                     lastSeenId = entries.lastOrNull()?.id ?: -1L
                     open = false

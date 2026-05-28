@@ -101,13 +101,22 @@ data class WebViewLog(
 
 ```
 library/src/commonMain/kotlin/wang/harlon/webview/logpanel/
-├── LogStore.kt          # ring buffer + StateFlow
-├── LogShim.kt           # JS 注入脚本常量（双端共享）
+├── LogStore.kt              # ring buffer + StateFlow
+├── LogShim.kt               # JS 注入脚本常量（双端共享）
+├── WebViewEnvironment.kt    # UA + WebView 内核版本数据类
 └── ui/
     ├── LogPanelHost.kt      # 入口：FAB + 抽屉容器
     ├── LogPanelFab.kt       # 可拖动 FAB + 未读 error 角标
-    ├── LogPanelDrawer.kt    # ModalBottomSheet 内含 toolbar + list
+    ├── LogPanelDrawer.kt    # ModalBottomSheet 内含 Environment 折叠区 + toolbar + list
     └── LogRow.kt            # 单条 row
+
+library/src/androidMain/kotlin/wang/harlon/webview/logpanel/
+├── LogJsBridgeAndroidBinder.kt
+└── AndroidEnvironmentCapture.kt   # 同步读 UA + WebView Provider 包
+
+library/src/iosMain/kotlin/wang/harlon/webview/logpanel/
+├── LogIosBinder.kt
+└── IosEnvironmentCapture.kt       # 读 customUserAgent / evaluateJavaScript + UIDevice.systemVersion
 ```
 
 ### LogStore
@@ -193,6 +202,7 @@ class JsBridge internal constructor(
 | 模块 | `enableLogPanel = false`（默认） | `enableLogPanel = true` |
 |---|---|---|
 | `WebViewState.logStore` | `null` | `LogStore()` 实例 |
+| `WebViewState.environment` | `null`，不读 `webView.settings` / `PackageManager` / `UIDevice` | `WebViewEnvironment` 实例，由各端 `capture...Environment` 写入 |
 | LogShim JS 脚本 | 不注入；`window.__kmpLogShimInstalled` 不存在 | 与 `KmpBridgeShim` 合并注入（Android `onPageStarted` evaluateJavascript / iOS `WKUserScript`） |
 | Android `LogJsBridge`（`__kmpLogNative` JavaScriptInterface） | 不注册 | 注册到 WebView |
 | iOS `__kmpLog` `WKScriptMessageHandler` | 不注册 | 注册到 `userContentController` |
@@ -200,7 +210,7 @@ class JsBridge internal constructor(
 | H5 侧 `window.onerror` / `unhandledrejection` | 未被 SDK 监听 | 被 shim 注册监听 |
 | WebView 加载错误回调 | 仍触发，但走 `logStore?.append(...)` 短路 | 写入 LogStore |
 | JSBridge `call/emit` 路径 | 仍执行，但 `logStore?.append(...)` 短路 | 每次调用写入 LogStore |
-| LogPanelHost Composable | 不参与组合（`state.logStore?.let { ... }` 短路） | 渲染 FAB；点击展开 ModalBottomSheet |
+| LogPanelHost Composable | 不参与组合（`state.logStore?.let { ... }` 短路） | 渲染 FAB；点击展开 ModalBottomSheet（含 Environment 折叠区） |
 
 #### 关闭状态下的可观测影响
 
@@ -225,6 +235,8 @@ class JsBridge internal constructor(
 ```
 ┌──────────────────────────────────────────┐
 │ Logs (123)                       [×]      │
+│ ─────────────────────────────────────────│
+│ ▸ Environment                             │  ← 默认收起，点击展开
 │ ─────────────────────────────────────────│
 │ [All] [Console] [Bridge] [Error]          │  ← 4 个 chip，多选
 │ [search: _______________]  [Clear]        │
@@ -266,6 +278,31 @@ class JsBridge internal constructor(
 ### 与现有 UI 的关系
 
 LogPanelHost 与 `WebViewTopBar` / `WebViewBottomBar` / `WebViewProgressBar` / `WebViewErrorView` 同级，在 `WebViewScreen` 内通过 `Box` 叠加在 WebView 之上，不参与 Scaffold 槽位。
+
+### Environment 折叠区
+
+抽屉 toolbar 下、过滤 chips 上方的元信息区域，跟日志数据职责分离（Clear 不影响）。
+
+字段：
+
+| 字段 | Android | iOS |
+|---|---|---|
+| `UA` | `webView.settings.userAgentString`，包含业务方通过 `UserAgentStrategy` Append/Prefix/Override 后的最终值 | `customUserAgent` 优先；若为 nil 则 `evaluateJavaScript("navigator.userAgent")` 异步获取 |
+| `WebView` 内核版本 | `WebView.getCurrentWebViewPackage()` 拿 `packageName + versionName`（如 `Chrome 130.0.6723.105`）；API < 26 上为 null | `iOS X.Y.Z`（`UIDevice.currentDevice.systemVersion`）。WKWebView 没有公开 WebKit 版本 API，宿主 iOS 版本即决定了内核能力 |
+
+交互：
+
+- 默认折叠收起，点击标题切换；`rememberSaveable` 持久化展开态
+- 不支持复制（与整体面板"无导出"决策一致；前端直接读屏）
+- 字段缺失时该行不渲染（如 Android API 24/25 无内核版本）
+
+数据持有与获取：
+
+- `WebViewState.environment: WebViewEnvironment?`，`mutableStateOf` 暴露给 Compose 订阅
+- 仅在 `enableLogPanel = true` 时由各端 PlatformWebView factory 调 `captureAndroidEnvironment` / `captureIosEnvironment` 写入
+- 关闭路径下 environment 始终为 null，`EnvironmentSection` 第一行 `if (env == null) return` 短路，不读 settings、不调 PackageManager、不 evaluateJavaScript
+
+iOS UA 异步路径：第一次写入 `userAgent = "(loading...)"` + 版本占位，JS 拉到后整个对象被替换，抽屉 mutableStateOf 自动 recompose。
 
 ## 错误处理 / 边界场景
 

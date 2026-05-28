@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import wang.harlon.webview.bridge.JsBridge
 import wang.harlon.webview.logpanel.LogStore
+import wang.harlon.webview.logpanel.WebViewEnvironment
 
 class WebViewState internal constructor(
     initialUrl: String,
@@ -55,11 +56,23 @@ class WebViewState internal constructor(
     internal var logStore: LogStore? = null
         private set
 
+    /**
+     * 日志面板 Environment 区域展示用；由各端 PlatformWebView 在 WebView 创建后
+     * 通过 `capture...Environment` 函数写入。iOS UA 异步获取，第一次写入时
+     * `webViewVersion` 可能仍为 null，后续到达时整个对象被替换。
+     */
+    internal var environment: WebViewEnvironment? by mutableStateOf(null)
+        private set
+
     internal fun enableLogPanel() {
         if (logStore != null) return
         val store = LogStore(scope = bridgeScope)
         logStore = store
         jsBridge.attachLogStore(store)
+    }
+
+    internal fun setEnvironment(env: WebViewEnvironment) {
+        environment = env
     }
 
     internal var pendingCommand: WebViewCommand? by mutableStateOf(WebViewCommand.LoadUrl(initialUrl))
