@@ -90,7 +90,7 @@ private class MiniJsonReader(val s: String) {
                         'r' -> sb.append('\r')
                         't' -> sb.append('\t')
                         'b' -> sb.append('\b')
-                        'f' -> sb.append('')
+                        'f' -> sb.append('\u000C')
                         'u' -> {
                             if (i + 4 > s.length) error("bad unicode escape")
                             sb.append(s.substring(i, i + 4).toInt(16).toChar())

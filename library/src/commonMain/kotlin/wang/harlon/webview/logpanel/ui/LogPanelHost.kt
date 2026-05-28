@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import wang.harlon.webview.logpanel.LogStore
 import wang.harlon.webview.logpanel.WebViewEnvironment
 import wang.harlon.webview.logpanel.WebViewLog
@@ -30,15 +32,18 @@ internal fun LogPanelHost(
     val entries by store.entries.collectAsState()
     var open by rememberSaveable { mutableStateOf(false) }
     var lastSeenId by rememberSaveable { mutableStateOf(-1L) }
+    // host Box 的实测尺寸（px），给 FAB 用来 clamp 拖动边界；旋转/IME 时会变。
+    var hostSize by remember { mutableStateOf(IntSize.Zero) }
 
     val unreadErrors = remember(entries, lastSeenId, open) {
         if (open) 0
         else entries.count { it.id > lastSeenId && it.level == WebViewLog.Level.Error }
     }
 
-    Box(modifier) {
+    Box(modifier.onSizeChanged { hostSize = it }) {
         LogPanelFab(
             unreadErrors = unreadErrors,
+            hostSize = hostSize,
             onClick = { open = true },
         )
         if (open) {

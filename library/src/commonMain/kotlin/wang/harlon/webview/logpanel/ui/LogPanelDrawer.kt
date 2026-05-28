@@ -4,8 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import wang.harlon.webview.logpanel.WebViewEnvironment
@@ -76,7 +77,7 @@ internal fun LogPanelDrawer(
         onDismissRequest = onClose,
         sheetState = sheetState,
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 12.dp)) {
             // 顶部 toolbar
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -153,17 +154,21 @@ internal fun LogPanelDrawer(
 
             val listState = rememberLazyListState()
             // 跟随新日志：用户已在列表顶（首条可见且滚动偏移 < 24dp）时自动 scrollToItem(0)。
+            // firstVisibleItemScrollOffset 单位是 px，需要按当前密度换算 24dp。
+            val followThresholdPx = with(LocalDensity.current) { 24.dp.toPx() }
             LaunchedEffect(filtered.firstOrNull()?.id) {
                 val first = listState.firstVisibleItemIndex
                 val offset = listState.firstVisibleItemScrollOffset
-                if (first == 0 && offset < 64 && filtered.isNotEmpty()) {
+                if (first == 0 && offset < followThresholdPx && filtered.isNotEmpty()) {
                     listState.scrollToItem(0)
                 }
             }
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxWidth().height(420.dp),
+                // weight(1f) 让列表占满 sheet 内剩余空间——大屏/横屏/折叠屏自适应；
+                // 配合 Column.fillMaxHeight 让 weight 有有效高度可分配。
+                modifier = Modifier.fillMaxWidth().weight(1f),
             ) {
                 if (filtered.isEmpty()) {
                     item("empty") {
