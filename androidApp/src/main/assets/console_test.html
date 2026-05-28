@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日志面板冒烟测试</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; line-height: 1.6; }
+        h1 { font-size: 18px; margin: 0 0 12px; }
+        section { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        button {
+            display: block; width: 100%; margin: 6px 0;
+            padding: 12px; font-size: 14px; text-align: left;
+            background: #fafafa; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .hint { color: #888; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<h1>日志面板冒烟测试</h1>
+<p class="hint">每个按钮触发一种采集源；点完后开右下角悬浮入口看条目齐不齐。</p>
+
+<section>
+    <h2>console.*</h2>
+    <button onclick="console.log('plain log', { user: 'alice', age: 30 })">console.log（含对象）</button>
+    <button onclick="console.info('info msg', 1, 2, 3)">console.info（多 arg）</button>
+    <button onclick="console.warn('deprecated API!', 'use foo() instead')">console.warn</button>
+    <button onclick="console.error('something went wrong')">console.error</button>
+</section>
+
+<section>
+    <h2>JS 异常</h2>
+    <button onclick="throw new TypeError('boom from button')">throw TypeError（带 stack）</button>
+    <button onclick="document.body.x.y.z">访问 undefined.x.y.z</button>
+    <button onclick="Promise.reject(new Error('rejected on purpose'))">unhandled Promise rejection</button>
+</section>
+
+<section>
+    <h2>资源加载错误</h2>
+    <button onclick="fetch('/never-exists-' + Date.now()).catch(() => {})">触发 404（次级，默认 Verbose 不显示）</button>
+    <button onclick="new Image().src = 'https://invalid.invalid.example/x.png'">加载不存在图片</button>
+    <p class="hint">主框架加载错误请把 URL 输入栏填一个错的；这里仅触发次级资源失败。</p>
+</section>
+
+<section>
+    <h2>JSBridge</h2>
+    <button onclick="callBridge('getToken', { scope: 'user' })">call getToken（成功路径，需 native 端注册）</button>
+    <button onclick="callBridge('not_registered', null)">call 一个未注册 method（HANDLER_NOT_FOUND）</button>
+</section>
+
+<script>
+    function callBridge(method, params) {
+        const b = window.KmpBridge;
+        if (!b) { console.warn('KmpBridge not ready'); return; }
+        b.call(method, params).then(r => console.log('bridge ok:', r))
+                              .catch(e => console.warn('bridge err:', e && e.code, e && e.message));
+    }
+</script>
+
+</body>
+</html>

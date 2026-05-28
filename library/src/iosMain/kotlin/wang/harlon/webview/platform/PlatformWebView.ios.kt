@@ -19,6 +19,7 @@ import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
+import wang.harlon.webview.logpanel.LogIosBinder
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -33,6 +34,7 @@ internal actual fun PlatformWebView(
     UIKitView(
         modifier = modifier,
         factory = {
+            if (config.enableLogPanel) state.enableLogPanel()
             val wkConfig = WKWebViewConfiguration().apply {
                 allowsInlineMediaPlayback = true
                 mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone
@@ -52,10 +54,13 @@ internal actual fun PlatformWebView(
                 bridge = state.jsBridge,
                 channel = state.bridgeChannel,
             )
+            binderHolder.logBinder = state.logStore?.let { LogIosBinder(webView, it) }
             coordinator.bind(webView)
             webView
         },
         onRelease = {
+            binderHolder.logBinder?.dispose()
+            binderHolder.logBinder = null
             binderHolder.binder?.dispose()
             binderHolder.binder = null
             coordinator.dispose()
@@ -88,6 +93,7 @@ internal actual fun PlatformWebView(
 
 private class BinderHolder {
     var binder: JsBridgeIosBinder? = null
+    var logBinder: LogIosBinder? = null
 }
 
 /**

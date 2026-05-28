@@ -19,6 +19,7 @@ import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
+import wang.harlon.webview.logpanel.LogJsBridgeAndroidBinder
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -78,6 +79,8 @@ internal actual fun PlatformWebView(
             if (config.enableRemoteDebugging) {
                 WebView.setWebContentsDebuggingEnabled(true)
             }
+            // 在创建 WebView 前确保 logStore 已就绪：state.enableLogPanel 调用一次幂等。
+            if (config.enableLogPanel) state.enableLogPanel()
             WebView(ctx).also { wv ->
                 // 显式 MATCH_PARENT：WebView 默认 LayoutParams 是 WRAP_CONTENT，与 SPA 用
                 // `height: 100vh / 100%` 的 CSS 互相依赖会算出 viewport h=0，整页空白。
@@ -97,9 +100,14 @@ internal actual fun PlatformWebView(
                     channel = state.bridgeChannel,
                 )
                 webViewHolder.binder = binder
+                val logBinder = state.logStore?.let { LogJsBridgeAndroidBinder(wv, it) }
+                webViewHolder.logBinder = logBinder
                 wv.webViewClient = SdkWebViewClient(
                     state = state,
-                    onPageStartedExtra = { _, _ -> binder.injectShim() },
+                    onPageStartedExtra = { _, _ ->
+                        binder.injectShim()
+                        logBinder?.injectShim()
+                    },
                 )
                 wv.webChromeClient = SdkWebChromeClient(
                     state = state,
@@ -113,6 +121,8 @@ internal actual fun PlatformWebView(
         onRelease = { wv ->
             wv.stopLoading()
             wv.webChromeClient = null
+            webViewHolder.logBinder?.dispose()
+            webViewHolder.logBinder = null
             webViewHolder.binder?.dispose()
             webViewHolder.binder = null
             wv.destroy()
@@ -153,6 +163,7 @@ private class WebViewHolder {
     var webView: WebView? = null
         private set
     var binder: JsBridgeAndroidBinder? = null
+    var logBinder: LogJsBridgeAndroidBinder? = null
 
     fun attach(wv: WebView) { webView = wv }
     fun detach() { webView = null }

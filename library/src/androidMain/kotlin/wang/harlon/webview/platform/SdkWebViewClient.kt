@@ -5,9 +5,11 @@ import android.net.http.SslError
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import wang.harlon.webview.core.WebViewState
+import wang.harlon.webview.logpanel.WebViewLog
 
 internal class SdkWebViewClient(
     private val state: WebViewState,
@@ -27,11 +29,34 @@ internal class SdkWebViewClient(
     }
 
     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-        if (!request.isForMainFrame) return
-        state.onLoadFailed(
-            code = error.errorCode,
-            description = error.description?.toString() ?: "load failed",
-            failingUrl = request.url?.toString(),
+        val url = request.url?.toString()
+        val desc = error.description?.toString() ?: "load failed"
+        if (request.isForMainFrame) {
+            state.onLoadFailed(code = error.errorCode, description = desc, failingUrl = url)
+            state.logStore?.appendAsync(
+                source = WebViewLog.Source.WebViewError,
+                level = WebViewLog.Level.Error,
+                message = "[mainFrame] $desc ${url.orEmpty()}".trim(),
+            )
+        } else {
+            // 二级资源失败按 Verbose 入库；UI 默认过滤掉，避免淹没列表。
+            state.logStore?.appendAsync(
+                source = WebViewLog.Source.WebViewError,
+                level = WebViewLog.Level.Verbose,
+                message = "[resource ${error.errorCode}] ${desc} ${url.orEmpty()}".trim(),
+            )
+        }
+    }
+
+    override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+        val url = request.url?.toString()
+        val status = errorResponse.statusCode
+        val reason = errorResponse.reasonPhrase.orEmpty()
+        val level = if (request.isForMainFrame) WebViewLog.Level.Error else WebViewLog.Level.Warn
+        state.logStore?.appendAsync(
+            source = WebViewLog.Source.WebViewError,
+            level = level,
+            message = "HTTP $status ${url.orEmpty()} $reason".trim(),
         )
     }
 
@@ -41,6 +66,12 @@ internal class SdkWebViewClient(
             code = error.primaryError,
             description = "SSL error",
             failingUrl = error.url,
+        )
+        state.logStore?.appendAsync(
+            source = WebViewLog.Source.WebViewError,
+            level = WebViewLog.Level.Error,
+            message = "SSL error (${error.primaryError}) ${error.url.orEmpty()}",
+            detail = error.certificate?.toString(),
         )
     }
 

@@ -9,6 +9,7 @@ import platform.WebKit.WKWebView
 import platform.darwin.NSObject
 import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewState
+import wang.harlon.webview.logpanel.WebViewLog
 
 @OptIn(ExperimentalForeignApi::class)
 internal class WebViewCoordinator(
@@ -72,27 +73,46 @@ internal class SdkNavigationDelegate(
 
     @ObjCSignatureOverride
     override fun webView(webView: WKWebView, didFailNavigation: WKNavigation?, withError: NSError) {
+        val url = webView.URL?.absoluteString
         state.onLoadFailed(
             code = withError.code.toInt(),
             description = withError.localizedDescription,
-            failingUrl = webView.URL?.absoluteString,
+            failingUrl = url,
         )
+        appendNavError(withError, url, "didFail")
     }
 
     @ObjCSignatureOverride
     override fun webView(webView: WKWebView, didFailProvisionalNavigation: WKNavigation?, withError: NSError) {
+        val url = webView.URL?.absoluteString
         state.onLoadFailed(
             code = withError.code.toInt(),
             description = withError.localizedDescription,
-            failingUrl = webView.URL?.absoluteString,
+            failingUrl = url,
         )
+        appendNavError(withError, url, "didFailProvisional")
     }
 
     override fun webViewWebContentProcessDidTerminate(webView: WKWebView) {
+        val url = webView.URL?.absoluteString
         state.onLoadFailed(
             code = -1,
             description = "process_terminated",
-            failingUrl = webView.URL?.absoluteString,
+            failingUrl = url,
+        )
+        state.logStore?.appendAsync(
+            source = WebViewLog.Source.WebViewError,
+            level = WebViewLog.Level.Error,
+            message = "process terminated ${url.orEmpty()}".trim(),
+        )
+    }
+
+    private fun appendNavError(error: NSError, url: String?, tag: String) {
+        state.logStore?.appendAsync(
+            source = WebViewLog.Source.WebViewError,
+            level = WebViewLog.Level.Error,
+            message = "[$tag ${error.code}] ${error.localizedDescription} ${url.orEmpty()}".trim(),
+            detail = error.userInfo.takeIf { it.isNotEmpty() }?.toString(),
         )
     }
 }
