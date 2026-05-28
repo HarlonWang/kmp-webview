@@ -186,6 +186,32 @@ class JsBridge internal constructor(
 }
 ```
 
+## `enableLogPanel` 开关行为
+
+设计目标：关闭即零侵入——业务方不开开关时，SDK 不向 WebView 注入任何调试相关脚本、不在 `userContentController` 上注册任何 handler、不重写 H5 侧的任何全局对象。开关只在 `WebViewScreen` 初始化时读取一次，运行时不切换（避免 shim 注入/卸载的状态机复杂度；如需切换业务方重建 WebViewState）。
+
+| 模块 | `enableLogPanel = false`（默认） | `enableLogPanel = true` |
+|---|---|---|
+| `WebViewState.logStore` | `null` | `LogStore()` 实例 |
+| LogShim JS 脚本 | 不注入；`window.__kmpLogShimInstalled` 不存在 | 与 `KmpBridgeShim` 合并注入（Android `onPageStarted` evaluateJavascript / iOS `WKUserScript`） |
+| Android `LogJsBridge`（`__kmpLogNative` JavaScriptInterface） | 不注册 | 注册到 WebView |
+| iOS `__kmpLog` `WKScriptMessageHandler` | 不注册 | 注册到 `userContentController` |
+| H5 侧 `console.*` | 原生未被包装，零损耗 | 被 shim wrap，调用时多一次 try/catch + post |
+| H5 侧 `window.onerror` / `unhandledrejection` | 未被 SDK 监听 | 被 shim 注册监听 |
+| WebView 加载错误回调 | 仍触发，但走 `logStore?.append(...)` 短路 | 写入 LogStore |
+| JSBridge `call/emit` 路径 | 仍执行，但 `logStore?.append(...)` 短路 | 每次调用写入 LogStore |
+| LogPanelHost Composable | 不参与组合（`state.logStore?.let { ... }` 短路） | 渲染 FAB；点击展开 ModalBottomSheet |
+
+#### 关闭状态下的可观测影响
+
+- H5 页面里 `typeof window.__kmpLogNative === 'undefined'`（Android）/ `typeof window.webkit?.messageHandlers?.__kmpLog === 'undefined'`（iOS）
+- `console.log.toString()` 是原生实现（未被包装的 `function log() { [native code] }`）
+- 业务方页面里的 `window.onerror` / `unhandledrejection` 监听完全由业务自行决定，SDK 不抢注
+
+#### 产物体积
+
+`LogShim.kt` 字符串常量 + LogStore + UI Composable 在关闭路径下均为未引用代码。开启 R8 / dead-code elimination 的业务方 APK 几乎无额外占用；未开启时常量字符串仍在，但 < 10KB。
+
 ## UI
 
 ### 形态
