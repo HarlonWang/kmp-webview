@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 data class WebViewConfig(
     val titleOverride: String? = null,
     val userAgent: UserAgentStrategy = UserAgentStrategy.Default,
+    val showTopBar: Boolean = true,
     val showBottomBar: Boolean = true,
     val showProgressBar: Boolean = true,
     val allowFileChooser: Boolean = true,

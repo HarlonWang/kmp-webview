@@ -27,7 +27,9 @@ fun WebViewScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column {
-                WebViewTopBar(state, config, onCloseRequest)
+                if (config.showTopBar) {
+                    WebViewTopBar(state, config, onCloseRequest)
+                }
                 if (config.showProgressBar) {
                     WebViewProgressBar(state.loading)
                 }
