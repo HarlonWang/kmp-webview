@@ -108,6 +108,36 @@ WebViewScreen(
 
 关闭路径（默认）下：不向 WebView 注入 shim、不注册 `__kmpLog` channel、不重写 H5 侧 `console.*` / 不监听 `onerror` / `unhandledrejection`、所有采集挂钩 `logStore?.append(...)` 短路。详见 [设计文档](docs/superpowers/specs/2026-05-28-webview-log-panel-design.md)。
 
+## 扫一扫加载网页（扩展模块，仅 Android）
+
+可选扩展模块 `wang.harlon:kmp-webview-scanner`，提供开箱即用的全屏二维码扫码界面：扫到网页 URL → 交给 `WebViewScreen` 打开。核心 `library` **不依赖**它，按需引入：
+
+```kotlin
+// build.gradle.kts
+implementation("wang.harlon:kmp-webview-scanner:0.1.0")
+```
+
+```kotlin
+var showScanner by remember { mutableStateOf(false) }
+
+if (showScanner) {
+    QrScannerScreen(
+        onResult = { url ->          // 仅在识别到合法 http/https URL 时回调
+            state.loadUrl(url)
+            showScanner = false
+        },
+        onCancel = { showScanner = false },
+    )
+} else {
+    WebViewScreen(state = state, onCloseRequest = onClose)
+}
+```
+
+- 技术栈：CameraX + ZXing（离线、无 Google Play 服务依赖）+ Compose 自绘取景框，含手电筒开关与扫描线动画。
+- **安全**：默认只放行带 host 的 `http`/`https` URL，`javascript:` / `file:` / `tel:` 等非网页或危险 scheme 会提示「非有效网址」并继续扫描，不回调。
+- **权限**：模块自带声明 `CAMERA` 权限并在进入 `QrScannerScreen` 时自动申请；被拒时展示占位 UI（重试 / 去设置 / 取消）。引入该模块即意味着使用相机，故权限由模块声明，与核心库「只声明 INTERNET」策略不同。
+- 仅 Android（本期）；iOS 后续按需扩展。详见 [设计文档](docs/superpowers/specs/2026-05-29-qr-scanner-design.md)。
+
 ## 当前限制
 
 `<video>` 自动播放在两端默认开启（支撑 `getUserMedia` 视频预览），暂未暴露开关；如需要禁用请提 issue。

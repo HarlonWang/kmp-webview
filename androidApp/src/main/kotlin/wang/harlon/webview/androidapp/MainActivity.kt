@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,6 +41,7 @@ import kotlinx.coroutines.delay
 import wang.harlon.webview.WebViewScreen
 import wang.harlon.webview.core.WebViewState
 import wang.harlon.webview.core.rememberWebViewState
+import wang.harlon.webview.scanner.QrScannerScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,6 +64,7 @@ private fun DemoApp(onClose: () -> Unit) {
     MaterialTheme {
         Surface {
             val state = rememberWebViewState(INITIAL_URL)
+            var showScanner by remember { mutableStateOf(false) }
 
             LaunchedEffect(state) {
                 state.jsBridge.registerHandler("echo") { params ->
@@ -79,27 +83,42 @@ private fun DemoApp(onClose: () -> Unit) {
                 }
             }
 
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    // Android 15+ 默认 edge-to-edge：在外层消费 status bar inset，避免 URL bar 顶到状态栏。
-                    // WebViewScreen 内部 Scaffold 已处理其余 system bars，子树看到 status bar 已消费不会重复 padding。
-                    .windowInsetsPadding(WindowInsets.statusBars)
-            ) {
-                UrlBar(state = state)
-                WebViewScreen(
-                    state = state,
-                    config = wang.harlon.webview.core.WebViewConfig(enableLogPanel = true),
-                    onCloseRequest = onClose,
-                    modifier = Modifier.weight(1f),
-                )
+            // 用 Box 叠加而非 if/else 替换：WebViewScreen 始终留在组合中，
+            // 扫码界面盖在上层；关闭后 WebView 不被销毁重建，返回即原样。
+            Box(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        // Android 15+ 默认 edge-to-edge：在外层消费 status bar inset，避免 URL bar 顶到状态栏。
+                        // WebViewScreen 内部 Scaffold 已处理其余 system bars，子树看到 status bar 已消费不会重复 padding。
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                ) {
+                    UrlBar(state = state, onScanClick = { showScanner = true })
+                    WebViewScreen(
+                        state = state,
+                        config = wang.harlon.webview.core.WebViewConfig(enableLogPanel = true),
+                        onCloseRequest = onClose,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                if (showScanner) {
+                    // 扫码界面全屏不透明（黑底），自管 system bars，覆盖在 WebView 之上
+                    QrScannerScreen(
+                        onResult = { url ->
+                            state.loadUrl(url)
+                            showScanner = false
+                        },
+                        onCancel = { showScanner = false },
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun UrlBar(state: WebViewState) {
+private fun UrlBar(state: WebViewState, onScanClick: () -> Unit) {
     var input by rememberSaveable { mutableStateOf(state.currentUrl) }
     // WebView 自身导航（点链接、redirect、reload）后回写 TextField；
     // 输入中用户被覆盖是已知小竞态，demo 场景可忽略。
@@ -125,6 +144,10 @@ private fun UrlBar(state: WebViewState) {
         Spacer(Modifier.width(8.dp))
         Button(onClick = { state.loadUrl(normalizeUrl(input)) }) {
             Text("打开")
+        }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = onScanClick) {
+            Text("扫一扫")
         }
     }
 }

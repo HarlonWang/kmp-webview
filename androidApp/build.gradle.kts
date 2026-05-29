@@ -36,6 +36,7 @@ kotlin {
 
 dependencies {
     implementation(project(":library"))
+    implementation(project(":scanner"))
     implementation(libs.androidx.activity.compose)
     implementation(compose.runtime)
     implementation(compose.foundation)
