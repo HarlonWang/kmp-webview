@@ -7,9 +7,9 @@ vanniktechMavenPublish = "0.36.0"
 compose = "1.11.0"
 androidxActivityCompose = "1.13.0"
 androidxCore = "1.18.0"
-kotlinxCoroutines = "1.10.2"
-camerax = "1.4.2"
-zxing = "3.5.3"
+kotlinxCoroutines = "1.11.0"
+camerax = "1.6.1"
+zxing = "3.5.4"
 junit = "4.13.2"
 
 [libraries]
