@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -82,16 +83,9 @@ private fun DemoApp(onClose: () -> Unit) {
                 }
             }
 
-            if (showScanner) {
-                // 扫码界面自管全屏与 system bars，直接覆盖在最上层
-                QrScannerScreen(
-                    onResult = { url ->
-                        state.loadUrl(url)
-                        showScanner = false
-                    },
-                    onCancel = { showScanner = false },
-                )
-            } else {
+            // 用 Box 叠加而非 if/else 替换：WebViewScreen 始终留在组合中，
+            // 扫码界面盖在上层；关闭后 WebView 不被销毁重建，返回即原样。
+            Box(Modifier.fillMaxSize()) {
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -105,6 +99,17 @@ private fun DemoApp(onClose: () -> Unit) {
                         config = wang.harlon.webview.core.WebViewConfig(enableLogPanel = true),
                         onCloseRequest = onClose,
                         modifier = Modifier.weight(1f),
+                    )
+                }
+
+                if (showScanner) {
+                    // 扫码界面全屏不透明（黑底），自管 system bars，覆盖在 WebView 之上
+                    QrScannerScreen(
+                        onResult = { url ->
+                            state.loadUrl(url)
+                            showScanner = false
+                        },
+                        onCancel = { showScanner = false },
                     )
                 }
             }
