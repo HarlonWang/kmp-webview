@@ -51,6 +51,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -72,12 +74,11 @@ fun QrScannerScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED,
-        )
-    }
+    fun cameraGranted() =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+
+    var hasPermission by remember { mutableStateOf(cameraGranted()) }
     var permissionDenied by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(
@@ -89,6 +90,19 @@ fun QrScannerScreen(
 
     LaunchedEffect(Unit) {
         if (!hasPermission) launcher.launch(Manifest.permission.CAMERA)
+    }
+
+    // 用户点「去设置」开权限返回后，ON_RESUME 重新检查，自动从拒绝占位切回相机视图
+    val activity = remember(context) { context.findComponentActivity() }
+    DisposableEffect(activity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && !hasPermission && cameraGranted()) {
+                hasPermission = true
+                permissionDenied = false
+            }
+        }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
     }
 
     Box(

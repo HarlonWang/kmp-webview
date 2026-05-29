@@ -33,6 +33,7 @@ internal fun CameraPreview(
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
     val controller = remember {
         LifecycleCameraController(context).apply {
+            // 只启用 IMAGE_ANALYSIS；PREVIEW 在 CameraController 下始终绑定、无需也无法在此声明
             setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
             setImageAnalysisAnalyzer(analysisExecutor, analyzer)
         }
@@ -62,7 +63,7 @@ internal fun CameraPreview(
     )
 }
 
-private tailrec fun Context.findComponentActivity(): ComponentActivity = when (this) {
+internal tailrec fun Context.findComponentActivity(): ComponentActivity = when (this) {
     is ComponentActivity -> this
     is ContextWrapper -> baseContext.findComponentActivity()
     else -> error("QrScannerScreen 必须承载在 ComponentActivity 内")
