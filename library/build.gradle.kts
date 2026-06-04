@@ -24,6 +24,8 @@ kotlin {
 
         withJava()
 
+        withHostTestBuilder {}
+
         compilations.configureEach {
             compileTaskProvider.configure {
                 compilerOptions {
