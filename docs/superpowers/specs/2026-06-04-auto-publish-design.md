@@ -78,7 +78,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4    # temurin 17
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :library:testDebugUnitTest :scanner:testDebugUnitTest :androidApp:assembleDebug
+      - run: ./gradlew :library:testAndroidHostTest :scanner:testDebugUnitTest :androidApp:assembleDebug
 ```
 
 - ubuntu 无法编译 Kotlin/Native Apple target，故只跑 Android/common 单测 + sample 编译；iOS 编译由发版时 macOS runner 兜底（低频库可接受，不为每个 PR 燃 macOS 时长）
