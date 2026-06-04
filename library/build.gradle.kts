@@ -72,6 +72,9 @@ kotlin {
 }
 
 mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+
     coordinates(group.toString(), "kmp-webview", version.toString())
 
     pom {

@@ -56,6 +56,9 @@ dependencies {
 }
 
 mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+
     configure(AndroidSingleVariantLibrary(variant = "release"))
     coordinates(group.toString(), "kmp-webview-scanner", version.toString())
 
