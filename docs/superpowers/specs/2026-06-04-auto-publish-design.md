@@ -61,7 +61,7 @@ jobs:
 要点：
 
 - `publishAndReleaseToMavenCentral` 为插件自带任务（上传 → 等校验 → 自动 release），无需改 build 脚本 DSL
-- `SIGNING_PRIVATE_KEY` 存 base64 编码的 armored 私钥（secrets 仓库 `gpg-private-key.b64`），Gradle `useInMemoryPgpKeys` 可直接消费（quickjs-wrapper CI 验证过同样用法）
+- `SIGNING_PRIVATE_KEY` 必须存**解码后的 armored 私钥文本**（`gpg-private-key.b64 | base64 -d`）。不能直接存 b64 文件原文：base64(armored) 是双重编码，Gradle `useInMemoryPgpKeys` 解析报 "Could not read PGP secret key"（0.1.1 首跑实测踩坑；secrets 仓库 README 的旧约定有误且从未被实战验证——quickjs-wrapper 自 key 迁移后没发过版）
 - GitHub Release 在发布成功之后创建（步骤顺序保证：Maven 发布失败则无 Release）
 
 ## 3. build.yml（常规 CI）
@@ -89,7 +89,7 @@ jobs:
 
 | Secret | 来源文件 |
 |---|---|
-| `SIGNING_PRIVATE_KEY` | `gpg-private-key.b64` |
+| `SIGNING_PRIVATE_KEY` | `gpg-private-key.b64` **再 `base64 -d` 解码**（存 armored 文本） |
 | `SIGNING_PASSWORD` | `gpg-passphrase.txt` |
 | `SONATYPE_NEXUS_USERNAME` | `sonatype-token.txt` 第一行 |
 | `SONATYPE_NEXUS_PASSWORD` | `sonatype-token.txt` 第二行 |
