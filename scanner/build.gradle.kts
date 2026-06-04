@@ -8,9 +8,6 @@ plugins {
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "wang.harlon"
-version = "0.1.0"
-
 android {
     namespace = "wang.harlon.webview.scanner"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -57,10 +54,13 @@ dependencies {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    // CI 注入 signingInMemoryKey 时启用签名；本地无密钥跳过
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
 
     configure(AndroidSingleVariantLibrary(variant = "release"))
-    coordinates(group.toString(), "kmp-webview-scanner", version.toString())
+    coordinates(groupId = "wang.harlon", artifactId = "kmp-webview-scanner")
 
     pom {
         name.set("kmp-webview-scanner")

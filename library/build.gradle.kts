@@ -10,9 +10,6 @@ plugins {
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "wang.harlon"
-version = "0.1.0"
-
 val frameworkName = "KmpWebView"
 val xcframework = XCFramework(frameworkName)
 
@@ -75,9 +72,12 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    // CI 注入 signingInMemoryKey 时启用签名；本地无密钥跳过
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
 
-    coordinates(group.toString(), "kmp-webview", version.toString())
+    coordinates(groupId = "wang.harlon", artifactId = "kmp-webview")
 
     pom {
         name.set("kmp-webview")
