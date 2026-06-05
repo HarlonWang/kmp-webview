@@ -2,10 +2,49 @@
 
 > Kotlin Multiplatform WebView SDK，Android + iOS。开箱即用：TopAppBar、底部导航、加载条、错误页，以及文件选择、拍照、`getUserMedia` 设备能力。
 
-- **状态**：early access `0.1.0`，API 可能调整
-- **坐标**：`wang.harlon:kmp-webview:0.1.0`
+- **状态**：early access，API 可能调整（最新版本见 [Releases](https://github.com/HarlonWang/kmp-webview/releases)）
+- **坐标**：`wang.harlon:kmp-webview`（[Maven Central](https://central.sonatype.com/artifact/wang.harlon/kmp-webview)）
 - **最低**：Android `minSdk 24`、iOS 14.5+（仅 `getUserMedia`）
 - **License**：Apache-2.0
+
+## 接入
+
+产物发布在 Maven Central，确认仓库列表含 `mavenCentral()`。
+
+**KMP 工程**（commonMain 一处声明，Android/iOS 平台产物由 Gradle 元数据自动解析）：
+
+```kotlin
+// build.gradle.kts
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation("wang.harlon:kmp-webview:0.1.1")
+        }
+    }
+}
+```
+
+**纯 Android 工程**：
+
+```kotlin
+dependencies {
+    implementation("wang.harlon:kmp-webview:0.1.1")
+}
+```
+
+**Version Catalog（推荐）**：
+
+```toml
+# gradle/libs.versions.toml
+[versions]
+kmpWebview = "0.1.1"
+
+[libraries]
+kmp-webview = { module = "wang.harlon:kmp-webview", version.ref = "kmpWebview" }
+kmp-webview-scanner = { module = "wang.harlon:kmp-webview-scanner", version.ref = "kmpWebview" }  # 可选扫码扩展
+```
+
+> iOS 仅支持通过 KMP 工程接入（`iosArm64` / `iosSimulatorArm64`）；独立 XCFramework 暂未发布，有需要请提 issue。
 
 ## 使用
 
@@ -114,7 +153,7 @@ WebViewScreen(
 
 ```kotlin
 // build.gradle.kts
-implementation("wang.harlon:kmp-webview-scanner:0.1.0")
+implementation("wang.harlon:kmp-webview-scanner:0.1.1")
 ```
 
 ```kotlin
