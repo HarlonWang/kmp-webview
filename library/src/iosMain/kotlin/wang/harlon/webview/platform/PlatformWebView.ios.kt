@@ -82,7 +82,15 @@ internal actual fun PlatformWebView(
                     state.consumeCommand()
                     return@LaunchedEffect
                 }
-                wv.loadRequest(NSURLRequest.requestWithURL(nsUrl))
+                if (command.url.startsWith("file://")) {
+                    // 本地 file:// 资源（如 composeResources 的 Res.getUri 返回值）：WKWebView 沙箱
+                    // 要求走 loadFileURL，用 loadRequest 加载 file:// 会被拒。read-access 给文件所在
+                    // 目录即可——自包含单页无同级资源依赖。
+                    val readAccess = nsUrl.URLByDeletingLastPathComponent ?: nsUrl
+                    wv.loadFileURL(nsUrl, allowingReadAccessToURL = readAccess)
+                } else {
+                    wv.loadRequest(NSURLRequest.requestWithURL(nsUrl))
+                }
             }
         }
         state.consumeCommand()
