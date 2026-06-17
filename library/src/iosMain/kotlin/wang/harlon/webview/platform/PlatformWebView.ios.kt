@@ -8,8 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSSelectorFromString
+import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
+// setAllHTTPHeaderFields 是 Obj-C 分类（NSMutableHTTPURLRequest）方法，K/N 暴露为扩展函数，须显式 import。
+import platform.Foundation.setAllHTTPHeaderFields
 import platform.WebKit.WKAudiovisualMediaTypeNone
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
@@ -88,8 +91,15 @@ internal actual fun PlatformWebView(
                     // 目录即可——自包含单页无同级资源依赖。
                     val readAccess = nsUrl.URLByDeletingLastPathComponent ?: nsUrl
                     wv.loadFileURL(nsUrl, allowingReadAccessToURL = readAccess)
-                } else {
+                } else if (config.defaultHttpHeaders.isEmpty()) {
                     wv.loadRequest(NSURLRequest.requestWithURL(nsUrl))
+                } else {
+                    // 主文档附加自定义 header（如泳道 route-tag）：可变 request 逐个 setValue。
+                    // 仅此初次主文档请求生效，子资源不携带——见 WebViewConfig.defaultHttpHeaders KDoc。
+                    val request: NSMutableURLRequest = NSMutableURLRequest(uRL = nsUrl)
+                    @Suppress("UNCHECKED_CAST")
+                    request.setAllHTTPHeaderFields(config.defaultHttpHeaders as Map<Any?, *>)
+                    wv.loadRequest(request)
                 }
             }
         }

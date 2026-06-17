@@ -141,7 +141,9 @@ internal actual fun PlatformWebView(
             WebViewCommand.GoForward -> if (wv.canGoForward()) wv.goForward()
             WebViewCommand.Reload -> wv.reload()
             WebViewCommand.StopLoading -> wv.stopLoading()
-            is WebViewCommand.LoadUrl -> wv.loadUrl(command.url)
+            is WebViewCommand.LoadUrl ->
+                if (config.defaultHttpHeaders.isEmpty()) wv.loadUrl(command.url)
+                else wv.loadUrl(command.url, config.defaultHttpHeaders)
         }
         state.consumeCommand()
     }
