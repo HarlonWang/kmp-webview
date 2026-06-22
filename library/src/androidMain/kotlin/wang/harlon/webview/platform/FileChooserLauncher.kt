@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import android.webkit.MimeTypeMap
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import androidx.activity.result.ActivityResultLauncher
@@ -120,10 +121,25 @@ internal class FileChooserLauncher(
             ?.flatMap { it.splitToSequence(',') }
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
+            // OpenDocument/OpenMultipleDocuments 走 EXTRA_MIME_TYPES，系统只按 MIME 过滤、不认扩展名。
+            // H5 里 accept=".docx" 传过来的是扩展名，必须转成 MIME 才能正常筛选，否则系统拿
+            // ".docx" 当 MIME 匹配不到任何文件、整列表置灰。无法识别的扩展名退回 */*。
+            ?.flatMap { entry -> resolveEntry(entry) }
             ?.distinct()
             ?.toList()
             .orEmpty()
         return if (cleaned.isEmpty()) arrayOf("*/*") else cleaned.toTypedArray()
+    }
+
+    private fun resolveEntry(entry: String): Sequence<String> {
+        // 已是 MIME（含 '/'，如 image/* 或 application/pdf）：原样保留。
+        if (entry.contains('/')) return sequenceOf(entry)
+        // 扩展名（.docx / docx）：先查系统表，系统表对 Office 新格式覆盖不稳定，
+        // 再查内置兜底表，仍查不到才放开为 */*。
+        val ext = entry.removePrefix(".").lowercase()
+        val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+            ?: EXTENSION_MIME_FALLBACK[ext]
+        return sequenceOf(mime ?: "*/*")
     }
 
     private fun launchCameraIntent(): Boolean {
@@ -167,5 +183,51 @@ internal class FileChooserLauncher(
 
     private companion object {
         const val TAG = "KmpWebViewFileChooser"
+
+        // 系统 MimeTypeMap 对 Office 新格式（OOXML）等覆盖不稳定，这里做兜底。
+        // 文档类 MIME 取值对齐 H5 侧的 MIME↔扩展名映射表，避免两端理解不一致。
+        val EXTENSION_MIME_FALLBACK = mapOf(
+            // 文档
+            "doc" to "application/msword",
+            "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "docm" to "application/vnd.ms-word.document.macroEnabled.12",
+            "dotx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+            "dotm" to "application/vnd.ms-word.template.macroEnabled.12",
+            "xls" to "application/vnd.ms-excel",
+            "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "ppt" to "application/vnd.ms-powerpoint",
+            "pptx" to "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "pdf" to "application/pdf",
+            "txt" to "text/plain",
+            "csv" to "text/csv",
+            "rtf" to "application/rtf",
+            // 图片
+            "apng" to "image/apng",
+            "avif" to "image/avif",
+            "bmp" to "image/bmp",
+            "gif" to "image/gif",
+            "heic" to "image/heic",
+            "heif" to "image/heif",
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "png" to "image/png",
+            "svg" to "image/svg+xml",
+            "tiff" to "image/tiff",
+            "ico" to "image/vnd.microsoft.icon",
+            "webp" to "image/webp",
+            // 视频
+            "mp4" to "video/mp4",
+            "m4v" to "video/x-m4v",
+            "mov" to "video/quicktime",
+            "webm" to "video/webm",
+            "ogv" to "video/ogg",
+            "avi" to "video/x-msvideo",
+            "mkv" to "video/x-matroska",
+            "3gp" to "video/3gpp",
+            "3g2" to "video/3gpp2",
+            "ts" to "video/mp2t",
+            "mpeg" to "video/mpeg",
+            "mpg" to "video/mpeg",
+        )
     }
 }
