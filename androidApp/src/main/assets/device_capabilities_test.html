@@ -40,6 +40,13 @@
 </section>
 
 <section>
+    <h2>1d. 多选 + 混合 MIME（multiple, accept=image/*,application/pdf）</h2>
+    <label class="btn" for="fileMixed">选择多个</label>
+    <input id="fileMixed" type="file" multiple accept="image/*,application/pdf">
+    <div id="fileMixedOut" class="out">未选择</div>
+</section>
+
+<section>
     <h2>2. 拍照（capture=camera）</h2>
     <label class="btn" for="file2">拍照</label>
     <input id="file2" type="file" accept="image/*" capture="camera">
@@ -91,6 +98,7 @@
     }
     document.getElementById('fileMulti').addEventListener('change', e => showFiles(e.target, 'fileMultiOut'));
     document.getElementById('fileVideo').addEventListener('change', e => showFiles(e.target, 'fileVideoOut'));
+    document.getElementById('fileMixed').addEventListener('change', e => showFiles(e.target, 'fileMixedOut'));
 
     let currentStream = null;
     document.getElementById('gumBtn').addEventListener('click', async () => {
