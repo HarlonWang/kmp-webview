@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import wang.harlon.webview.bridge.JsBridgeAndroidBinder
+import wang.harlon.webview.core.DownloadScripts
 import wang.harlon.webview.core.UserAgentStrategy
 import wang.harlon.webview.core.WebViewCommand
 import wang.harlon.webview.core.WebViewConfig
@@ -105,11 +106,25 @@ internal actual fun PlatformWebView(
                 webViewHolder.logBinder = logBinder
                 // 仅在面板启用时采集 environment；关闭路径下不读 settings/PackageManager。
                 if (state.logStore != null) captureAndroidEnvironment(wv, state)
+                // 下载接管：注册 DownloadListener + JS 回传接口（须在页面加载前 addJavascriptInterface）。
+                val downloader = if (config.allowDownloads) {
+                    AndroidWebDownloader(ctx, config).also { dl ->
+                        wv.addJavascriptInterface(dl.jsInterface(), DownloadScripts.NATIVE_INTERFACE)
+                        wv.setDownloadListener { url, ua, disposition, mime, _ ->
+                            dl.onDownloadStart(wv, url, ua, disposition, mime)
+                        }
+                    }
+                } else {
+                    null
+                }
+                webViewHolder.downloader = downloader
                 wv.webViewClient = SdkWebViewClient(
                     state = state,
-                    onPageStartedExtra = { _, _ ->
+                    onPageStartedExtra = { view, _ ->
                         binder.injectShim()
                         logBinder?.injectShim()
+                        // blob 下载拿不到 <a download> 文件名，靠该 hook 在点击时暂存。
+                        if (downloader != null) view.evaluateJavascript(DownloadScripts.DOWNLOAD_NAME_HOOK_JS, null)
                     },
                 )
                 wv.webChromeClient = SdkWebChromeClient(
@@ -128,6 +143,8 @@ internal actual fun PlatformWebView(
             webViewHolder.logBinder = null
             webViewHolder.binder?.dispose()
             webViewHolder.binder = null
+            webViewHolder.downloader?.dispose()
+            webViewHolder.downloader = null
             wv.destroy()
             webViewHolder.detach()
         },
@@ -169,6 +186,7 @@ private class WebViewHolder {
         private set
     var binder: JsBridgeAndroidBinder? = null
     var logBinder: LogJsBridgeAndroidBinder? = null
+    var downloader: AndroidWebDownloader? = null
 
     fun attach(wv: WebView) { webView = wv }
     fun detach() { webView = null }
