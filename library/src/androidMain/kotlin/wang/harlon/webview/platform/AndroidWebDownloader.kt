@@ -19,6 +19,7 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import wang.harlon.webview.core.DownloadScripts
 import wang.harlon.webview.core.WebViewConfig
 
@@ -49,6 +50,20 @@ internal class AndroidWebDownloader(
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
+    @Volatile
+    private var disposed = false
+
+    // dispose() 关掉 io 后仍可能有迟到的 JS 回调进来（pending 的 blob 读取回调）。裸调 io.execute 会抛
+    // RejectedExecutionException 崩溃——统一经此提交：已 disposed 直接丢弃，并兜住 shutdown 竞态。
+    private fun submitIo(block: () -> Unit) {
+        if (disposed) return
+        try {
+            io.execute(block)
+        } catch (e: RejectedExecutionException) {
+            Log.w(TAG, "io task rejected after dispose", e)
+        }
+    }
+
     /** DownloadListener 回调（UI 线程）。按 scheme 分流处理。 */
     fun onDownloadStart(
         webView: WebView,
@@ -63,7 +78,7 @@ internal class AndroidWebDownloader(
                 webView.evaluateJavascript(DownloadScripts.buildBlobReaderJs(url), null)
 
             url.startsWith("data:") ->
-                io.execute { handleDataUrl(url, nameFromDisposition(contentDisposition)) }
+                submitIo { handleDataUrl(url, nameFromDisposition(contentDisposition)) }
 
             URLUtil.isNetworkUrl(url) ->
                 enqueueHttpDownload(url, userAgent, contentDisposition, mimeType)
@@ -88,7 +103,7 @@ internal class AndroidWebDownloader(
                 postToast(MSG_ERROR)
                 return
             }
-            io.execute { handleDataUrl(dataUrl, name?.takeIf { it.isNotBlank() }) }
+            submitIo { handleDataUrl(dataUrl, name?.takeIf { it.isNotBlank() }) }
         }
     }
 
@@ -193,6 +208,7 @@ internal class AndroidWebDownloader(
     }
 
     fun dispose() {
+        disposed = true
         io.shutdown()
     }
 
