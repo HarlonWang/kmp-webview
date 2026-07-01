@@ -73,7 +73,13 @@ internal class AndroidWebDownloader(
     }
 
     /** 注册给 WebView 的 JS 接口对象；页面读完 blob 后回调这里。 */
-    fun jsInterface(): Any = object {
+    fun jsInterface(): JsDownloadBridge = JsDownloadBridge()
+
+    /**
+     * 暴露给页面 JS 的接口。必须是具名类且方法带 [JavascriptInterface] 注解——匿名 `object` 会让
+     * 静态类型退化成 `Object`，Lint 看不到注解而误报（API 17+ 未标注方法不可见）。
+     */
+    inner class JsDownloadBridge {
         // dataUrl 形如 "data:<mime>;base64,<payload>"；name 来自 DOWNLOAD_NAME_HOOK_JS 暂存值，可能为空。
         @JavascriptInterface
         fun onBlobDownloaded(blobUrl: String, dataUrl: String?, name: String?) {
