@@ -70,6 +70,48 @@ internal object DownloadScripts {
         })();
     """.trimIndent()
 
+    /**
+     * 在 onPageStarted 注入：改写 `window.open`，把 `data:` / `blob:` URL 的调用转成
+     * `<a download>` 点击，其余 URL 透传改写前的 window.open。
+     *
+     * 背景：Chromium 60+ 禁止渲染进程发起的「顶层 frame 导航到 `data:` URL」；WebView 默认不支持
+     * 多窗口，`window.open(dataUrl)` 退化为当前 frame 导航后被内核拦截（console 报
+     * "Not allowed to navigate top frame to data URL"），且拦截发生在渲染层——DownloadListener /
+     * shouldOverrideUrlLoading 都收不到回调，页面点击表现为静默无反应。Web 端组件库确有此写法
+     * （如 charmander Uploader 对非 blob: 的 src 一律 `window.open(src, '_blank')`）。
+     * 转成带 `download` 属性的锚点点击后，Chromium 按下载处理，正常触发 DownloadListener，
+     * 进入原生既有的 data:/blob: 落盘管道。
+     *
+     * 细节：
+     * - `download` 属性置空串：window.open 拿不到页面语义上的文件名，置空让原生按 MIME 兜底命名；
+     *   不复用 `window.__kmpLastDownloadName`，避免沿用上一次下载的过期名字。
+     * - 返回 null（等价于弹窗被拦截的浏览器行为），页面对返回值的判空逻辑可正常走通。
+     * - 幂等安装：onPageStarted 可能因重定向/刷新多次注入，重复改写会把上一层 patch 误当
+     *   "原始 open" 层层嵌套，靠安装标记短路。
+     */
+    val WINDOW_OPEN_DOWNLOAD_HOOK_JS: String = """
+        (function(){
+          if (window.__kmpWindowOpenHookInstalled) return;
+          window.__kmpWindowOpenHookInstalled = true;
+          var __kmpOrigWindowOpen = window.open ? window.open.bind(window) : null;
+          window.open = function(url, target, features) {
+            try {
+              if (typeof url === 'string' &&
+                  (url.indexOf('data:') === 0 || url.indexOf('blob:') === 0)) {
+                var a = document.createElement('a');
+                a.href = url;
+                a.setAttribute('download', '');
+                if (document.body) { document.body.appendChild(a); }
+                a.click();
+                if (a.parentNode) { a.parentNode.removeChild(a); }
+                return null;
+              }
+            } catch(_){}
+            return __kmpOrigWindowOpen ? __kmpOrigWindowOpen(url, target, features) : null;
+          };
+        })();
+    """.trimIndent()
+
     /** 把任意字符串安全地包成 JS 单引号字面量（转义反斜杠 / 引号 / 换行）。 */
     private fun jsString(raw: String): String {
         val sb = StringBuilder("'")

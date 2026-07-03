@@ -123,8 +123,13 @@ internal actual fun PlatformWebView(
                     onPageStartedExtra = { view, _ ->
                         binder.injectShim()
                         logBinder?.injectShim()
-                        // blob 下载拿不到 <a download> 文件名，靠该 hook 在点击时暂存。
-                        if (downloader != null) view.evaluateJavascript(DownloadScripts.DOWNLOAD_NAME_HOOK_JS, null)
+                        if (downloader != null) {
+                            // blob 下载拿不到 <a download> 文件名，靠该 hook 在点击时暂存。
+                            view.evaluateJavascript(DownloadScripts.DOWNLOAD_NAME_HOOK_JS, null)
+                            // window.open(data:/blob:) 会被 Chromium 拦在渲染层、到不了 DownloadListener，
+                            // 靠该 hook 改写成 <a download> 点击进下载管道。
+                            view.evaluateJavascript(DownloadScripts.WINDOW_OPEN_DOWNLOAD_HOOK_JS, null)
+                        }
                     },
                 )
                 wv.webChromeClient = SdkWebChromeClient(
