@@ -1,11 +1,16 @@
 package wang.harlon.webview.core
 
 /**
- * WebView 下载所需的注入 JS（跨端复用同一段字面量；当前仅 Android 消费，iOS 后续接入时复用）。
+ * WebView 下载所需的注入 JS（跨端复用同一段字面量）。
  *
  * 背景：Web 端下载普遍走 `API 取 Blob → URL.createObjectURL → <a download>.click()`，产出的是
  * `blob:` URL。原生的 DownloadListener 能收到该 URL，但 `blob:` 无法被原生网络栈直接读取——必须在
  * 页面上下文里用 XHR 把 blob 读回、经 FileReader 转成 `data:` base64，再交给原生解码落盘。
+ *
+ * **两端消费方式不同**：Android 有 `WebView.setDownloadListener` 兜住所有下载请求，JS 只需负责
+ * blob 读取与补文件名；iOS 的 WKWebView **没有等价回调**——`<a download>`（尤其 `blob:` / `data:`）
+ * 的点击不产生任何原生通知，点了就是静默无事发生。故 iOS 额外消费 [ANCHOR_CLICK_INTERCEPT_JS]，
+ * 在 JS 层拦下点击、把 URL 交回原生按 scheme 分流。
  */
 internal object DownloadScripts {
 
@@ -109,6 +114,44 @@ internal object DownloadScripts {
             } catch(_){}
             return __kmpOrigWindowOpen ? __kmpOrigWindowOpen(url, target, features) : null;
           };
+        })();
+    """.trimIndent()
+
+    /**
+     * 捕获阶段拦下下载型 `<a>` 的点击，把绝对 URL 与 `download` 文件名交回原生
+     * [NATIVE_INTERFACE].onAnchorDownload(href, name)，由原生按 scheme 分流。
+     *
+     * **iOS 专用**：Android 有 `DownloadListener` 兜底，无需在 JS 层拦截；WKWebView 则对
+     * `<a download>` 的点击（尤其 `blob:` / `data:`）不产生任何原生回调，不拦就是点了没反应
+     * （B2B2-8439 的 KYC「下载模板」正是此形态）。
+     *
+     * 拦截范围：带 `download` 属性的锚点，以及 href 为 `blob:` / `data:` 的锚点——后者即便没有
+     * `download` 属性，在 WKWebView 里导航过去同样是死路，一并接管。
+     *
+     * 只调 `preventDefault` 不调 `stopPropagation`：页面自身挂在同一次点击上的逻辑（埋点、状态
+     * 更新等）仍需照常执行，这里只取消"默认导航"这一件事。若页面 handler 自己走 `window.open`，
+     * 由 [WINDOW_OPEN_DOWNLOAD_HOOK_JS] 那条路接住。
+     *
+     * 用 `el.href` 而非 `getAttribute('href')`：前者已由浏览器解析成绝对 URL，原生侧无需再拼
+     * base；`blob:` / `data:` 两种取值行为一致。幂等安装。
+     */
+    val ANCHOR_CLICK_INTERCEPT_JS: String = """
+        (function(){
+          if (window.__kmpAnchorHookInstalled) return;
+          window.__kmpAnchorHookInstalled = true;
+          document.addEventListener('click', function(e){
+            try {
+              var el = e.target;
+              while (el && el.tagName !== 'A') el = el.parentElement;
+              if (!el) return;
+              var href = el.href || '';
+              if (!href) return;
+              var isInline = href.indexOf('blob:') === 0 || href.indexOf('data:') === 0;
+              if (!el.hasAttribute('download') && !isInline) return;
+              e.preventDefault();
+              window.$NATIVE_INTERFACE.onAnchorDownload(href, el.getAttribute('download') || '');
+            } catch(_){}
+          }, true);
         })();
     """.trimIndent()
 

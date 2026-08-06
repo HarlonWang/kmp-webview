@@ -39,11 +39,21 @@ internal actual fun PlatformWebView(
         modifier = modifier,
         factory = {
             if (config.enableLogPanel) state.enableLogPanel()
+            // 下载接管：JS 拦截点击 → message handler 回传 → 按 scheme 分流，详见 [IosWebDownloader]。
+            // 须在 wkConfig 之前建好——message handler 与注入脚本都要挂进 userContentController。
+            val downloader = if (config.allowDownloads) IosWebDownloader(config) else null
             val wkConfig = WKWebViewConfiguration().apply {
                 allowsInlineMediaPlayback = true
                 mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone
                 // 禁页面缩放（含输入框聚焦自动放大），默认开启，详见 [viewportLockUserScript]
                 if (config.lockZoom) userContentController.addUserScript(viewportLockUserScript())
+                if (downloader != null) {
+                    userContentController.addScriptMessageHandler(
+                        downloader,
+                        DownloadBridge.HANDLER_NAME,
+                    )
+                    DownloadBridge.userScripts().forEach(userContentController::addUserScript)
+                }
             }
             val webView = WKWebView(
                 frame = platform.CoreGraphics.CGRectMake(0.0, 0.0, 0.0, 0.0),
@@ -62,14 +72,23 @@ internal actual fun PlatformWebView(
             )
             binderHolder.logBinder = state.logStore?.let { LogIosBinder(webView, it) }
             if (state.logStore != null) captureIosEnvironment(webView, state)
+            downloader?.attach(webView)
+            binderHolder.downloader = downloader
             coordinator.bind(webView)
             webView
         },
-        onRelease = {
+        onRelease = { wv ->
             binderHolder.logBinder?.dispose()
             binderHolder.logBinder = null
             binderHolder.binder?.dispose()
             binderHolder.binder = null
+            // message handler 由 userContentController 强引用，不摘会连着 downloader 一起泄漏
+            if (binderHolder.downloader != null) {
+                wv.configuration.userContentController
+                    .removeScriptMessageHandlerForName(DownloadBridge.HANDLER_NAME)
+                binderHolder.downloader?.dispose()
+                binderHolder.downloader = null
+            }
             coordinator.dispose()
         },
     )
@@ -116,6 +135,7 @@ internal actual fun PlatformWebView(
 private class BinderHolder {
     var binder: JsBridgeIosBinder? = null
     var logBinder: LogIosBinder? = null
+    var downloader: IosWebDownloader? = null
 }
 
 /**

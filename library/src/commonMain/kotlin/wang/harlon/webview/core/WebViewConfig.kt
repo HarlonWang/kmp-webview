@@ -43,8 +43,9 @@ data class WebViewConfig(
     // 仅 debug/灰度环境开启；启用时不要在生产暴露给终端用户（detail 字段含 bridge payload，可能携带敏感信息）。
     val enableLogPanel: Boolean = false,
     // 接管 WebView 内的文件下载（`<a download>` / `blob:` / `data:` / http 直链）。默认开启。
-    // Web 端常见的 `blob:` 下载在原生 WebView 里若无 DownloadListener 会静默无反应；开启后由库负责
-    // 读取内容、落盘到应用私有 cache、并用系统应用打开/分享。当前仅 Android 生效，iOS 暂不消费（no-op）。
+    // Web 端常见的 `blob:` 下载在原生 WebView 里不接管会静默无反应；开启后由库负责读取内容、落盘到
+    // 应用私有 cache 并交系统处理。两端均已实现，呈现方式随平台惯例不同：Android 用 ACTION_VIEW 交
+    // 系统应用打开，iOS 弹分享面板（存「文件」App / 转交其他应用，见 iosMain 的 IosWebDownloader）。
     val allowDownloads: Boolean = true,
     // 下载落盘完成后的可选钩子：(文件名, 本地绝对路径, MIME)。库内部已完成"保存到 cache + 系统打开"，
     // host 仅在需要自定义后续（如自有分享面板 / 埋点）时使用。null = 只走库默认行为。
