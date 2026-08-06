@@ -30,6 +30,13 @@ data class WebViewConfig(
     // 顶栏根页（canGoBack == false）导航图标的视觉风格；默认 [CloseIconStyle.Close] 保持既有行为。
     // 详见 [CloseIconStyle] KDoc。
     val closeIconStyle: CloseIconStyle = CloseIconStyle.Close,
+    // 禁掉页面缩放：pinch 手势 + iOS「聚焦 font-size<16px 输入框时自动放大」。
+    // **仅 iOS 生效**——Android WebView 没有聚焦自动放大行为，该端为 no-op。
+    // 默认 true：iOS 放大后不会自动缩回，页面就此横向溢出、只能左右滑才能看全，对表单类 H5 是硬伤，
+    // 按"移动端 H5 本就不该被缩放"取默认。代价是用户无法双指放大看小字——个别确需缩放的页面
+    // （图片 / 长文档预览等）显式传 false 关掉。
+    // 实现见 iosMain 的 `viewportLockUserScript`。
+    val lockZoom: Boolean = true,
     // Android setWebContentsDebuggingEnabled 是进程级开关 / iOS isInspectable 仅 16.4+；release 应留 false
     val enableRemoteDebugging: Boolean = false,
     // 启用设备内日志面板（悬浮 FAB + 抽屉），采集 console / JS 异常 / WebView 错误 / JSBridge 调用链。

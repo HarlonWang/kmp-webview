@@ -42,6 +42,8 @@ internal actual fun PlatformWebView(
             val wkConfig = WKWebViewConfiguration().apply {
                 allowsInlineMediaPlayback = true
                 mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone
+                // 禁页面缩放（含输入框聚焦自动放大），默认开启，详见 [viewportLockUserScript]
+                if (config.lockZoom) userContentController.addUserScript(viewportLockUserScript())
             }
             val webView = WKWebView(
                 frame = platform.CoreGraphics.CGRectMake(0.0, 0.0, 0.0, 0.0),
