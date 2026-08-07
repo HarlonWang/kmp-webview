@@ -13,10 +13,43 @@ import wang.harlon.webview.bridge.JsBridge
 import wang.harlon.webview.logpanel.LogStore
 import wang.harlon.webview.logpanel.WebViewEnvironment
 
+/**
+ * WebView 首屏内容的来源。
+ *
+ * 区分二者的**唯一理由是页面 origin**：`file://` 页的 origin 是字符串 `"null"`，任何依赖
+ * `postMessage(msg, targetOrigin)` 与宿主页握手的第三方 widget（LiveChat 等）在其上都会直接抛
+ * `Invalid target origin 'null'` 而初始化失败。[Html] 让内置页带着一个**由调用方指定的
+ * https origin** 渲染，从而绕开这一规范级限制。
+ */
+sealed interface WebViewSource {
+    /** 常规远程/本地 URL（`http` / `https` / `file`）。 */
+    data class Url(val url: String) : WebViewSource
+
+    /**
+     * 直接渲染一段 HTML，并把文档 URL 伪装成 [baseUrl]——页面 origin、相对路径解析、
+     * cookie 归属都按 [baseUrl] 走。
+     *
+     * [baseUrl] 必须是**完整的 http(s) URL**（例如 `https://livechat.pingpongx.com/`）。
+     * 该域**不需要真实存在**：两端都只用它定 origin，不会对它发主文档请求。
+     *
+     * 平台实现：Android `WebView.loadDataWithBaseURL`；iOS `WKWebView.loadSimulatedRequest`
+     * （iOS 15+）。
+     *
+     * ⚠️ 此模式下 [WebViewState.reload] 在 iOS 上不会重放这段 HTML（`loadSimulatedRequest`
+     * 没有可重放的真实请求）；需要"重来一次"请重新 [WebViewState.loadHtml]。
+     */
+    data class Html(val html: String, val baseUrl: String) : WebViewSource
+}
+
 class WebViewState internal constructor(
-    initialUrl: String,
+    source: WebViewSource,
     bridgeNamespace: String,
 ) : RememberObserver {
+
+    private val initialUrl: String = when (source) {
+        is WebViewSource.Url -> source.url
+        is WebViewSource.Html -> source.baseUrl
+    }
 
     /**
      * Native 消息通道名，由 [bridgeNamespace] 经 [deriveBridgeChannel] 派生。
@@ -75,7 +108,12 @@ class WebViewState internal constructor(
         environment = env
     }
 
-    internal var pendingCommand: WebViewCommand? by mutableStateOf(WebViewCommand.LoadUrl(initialUrl))
+    internal var pendingCommand: WebViewCommand? by mutableStateOf(
+        when (source) {
+            is WebViewSource.Url -> WebViewCommand.LoadUrl(source.url)
+            is WebViewSource.Html -> WebViewCommand.LoadHtml(source.html, source.baseUrl)
+        },
+    )
         private set
 
     fun goBack() { dispatch(WebViewCommand.GoBack) }
@@ -87,6 +125,16 @@ class WebViewState internal constructor(
         if (url.isBlank()) return
         if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("file://")) return
         dispatch(WebViewCommand.LoadUrl(url))
+    }
+
+    /**
+     * 以 [baseUrl] 的 origin 渲染 [html]，语义与构造期的 [WebViewSource.Html] 一致（含其注意事项）。
+     * [baseUrl] 必须是完整 http(s) URL，否则调用被忽略。
+     */
+    fun loadHtml(html: String, baseUrl: String) {
+        if (html.isEmpty()) return
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) return
+        dispatch(WebViewCommand.LoadHtml(html, baseUrl))
     }
 
     private fun dispatch(command: WebViewCommand) {
@@ -143,6 +191,7 @@ internal sealed interface WebViewCommand {
     object Reload : WebViewCommand
     object StopLoading : WebViewCommand
     data class LoadUrl(val url: String) : WebViewCommand
+    data class LoadHtml(val html: String, val baseUrl: String) : WebViewCommand
 }
 
 /**
@@ -162,5 +211,21 @@ fun rememberWebViewState(
     bridgeNamespace: String = "KmpBridge",
 ): WebViewState =
     remember(initialUrl, bridgeNamespace) {
-        WebViewState(initialUrl, bridgeNamespace)
+        WebViewState(WebViewSource.Url(initialUrl), bridgeNamespace)
+    }
+
+/**
+ * [rememberWebViewState] 的 source 版重载：除 URL 外还能用 [WebViewSource.Html] 让内置页
+ * 带着指定 https origin 渲染（动机与限制见 [WebViewSource]）。
+ *
+ * @param source 首屏内容来源；变更时重建 state（与 URL 版一致的 remember key 语义）。
+ * @param bridgeNamespace 同 [rememberWebViewState] 的同名参数。
+ */
+@Composable
+fun rememberWebViewState(
+    source: WebViewSource,
+    bridgeNamespace: String = "KmpBridge",
+): WebViewState =
+    remember(source, bridgeNamespace) {
+        WebViewState(source, bridgeNamespace)
     }

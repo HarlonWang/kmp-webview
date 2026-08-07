@@ -166,6 +166,11 @@ internal actual fun PlatformWebView(
             is WebViewCommand.LoadUrl ->
                 if (config.defaultHttpHeaders.isEmpty()) wv.loadUrl(command.url)
                 else wv.loadUrl(command.url, config.defaultHttpHeaders)
+            // baseUrl 只决定页面 origin，不会对它发主文档请求——见 WebViewSource.Html。
+            // historyUrl 传 null：该页不需要独立的历史条目，返回键沿用宿主的关页语义。
+            // config.defaultHttpHeaders 在此模式下无从附加（压根没有主文档请求），故不参与。
+            is WebViewCommand.LoadHtml ->
+                wv.loadDataWithBaseURL(command.baseUrl, command.html, "text/html", "utf-8", null)
         }
         state.consumeCommand()
     }

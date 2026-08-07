@@ -123,6 +123,19 @@ internal actual fun PlatformWebView(
                     wv.loadRequest(request)
                 }
             }
+            is WebViewCommand.LoadHtml -> {
+                val baseNsUrl = NSURL.URLWithString(command.baseUrl) ?: run {
+                    state.consumeCommand()
+                    return@LaunchedEffect
+                }
+                // loadSimulatedRequest：把 html 当作"对 baseUrl 的响应"喂给 WKWebView，页面 origin
+                // 因而是 baseUrl 的 origin，而**不会**真的对 baseUrl 发请求（该域可以不存在）。
+                // 这是 iOS 侧唯一能给内置 HTML 指定真实 https origin 的官方途径（iOS 15+）。
+                wv.loadSimulatedRequest(
+                    NSURLRequest.requestWithURL(baseNsUrl),
+                    responseHTMLString = command.html,
+                )
+            }
         }
         state.consumeCommand()
     }
