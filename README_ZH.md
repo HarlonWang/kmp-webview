@@ -25,11 +25,11 @@
 ```kotlin
 // KMP —— commonMain 一处声明，平台产物由 Gradle 元数据自动解析
 commonMain.dependencies {
-    implementation("wang.harlon:kmp-webview:0.1.3")
+    implementation("wang.harlon:kmp-webview:latest.version")
 }
 
 // 纯 Android 工程
-implementation("wang.harlon:kmp-webview:0.1.3")
+implementation("wang.harlon:kmp-webview:latest.version")
 ```
 
 | 平台 | 要求 |
@@ -89,7 +89,7 @@ SDK 仅声明 `INTERNET`。相机 / 麦克风权限按需自行声明，避免�
 `wang.harlon:kmp-webview-scanner` 是独立模块 —— 核心库**不依赖**它。
 
 ```kotlin
-implementation("wang.harlon:kmp-webview-scanner:0.1.3")
+implementation("wang.harlon:kmp-webview-scanner:latest.version")
 ```
 
 ```kotlin

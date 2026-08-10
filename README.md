@@ -25,11 +25,11 @@ Published on Maven Central — make sure `mavenCentral()` is in your repositorie
 ```kotlin
 // KMP — declare once in commonMain; Gradle metadata resolves the platform artifacts
 commonMain.dependencies {
-    implementation("wang.harlon:kmp-webview:0.1.3")
+    implementation("wang.harlon:kmp-webview:latest.version")
 }
 
 // Android-only project
-implementation("wang.harlon:kmp-webview:0.1.3")
+implementation("wang.harlon:kmp-webview:latest.version")
 ```
 
 | Platform | Requirement |
@@ -89,7 +89,7 @@ The SDK declares only `INTERNET`. Declare camera/microphone permissions yourself
 `wang.harlon:kmp-webview-scanner` is a separate module — the core library does not depend on it.
 
 ```kotlin
-implementation("wang.harlon:kmp-webview-scanner:0.1.3")
+implementation("wang.harlon:kmp-webview-scanner:latest.version")
 ```
 
 ```kotlin
