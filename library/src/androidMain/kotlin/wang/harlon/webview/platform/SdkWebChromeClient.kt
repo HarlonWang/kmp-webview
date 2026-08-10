@@ -1,12 +1,16 @@
 package wang.harlon.webview.platform
 
 import android.net.Uri
+import android.webkit.ConsoleMessage
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import wang.harlon.webview.core.WebViewConfig
 import wang.harlon.webview.core.WebViewState
+import wang.harlon.webview.logpanel.NATIVE_CONSOLE_DETAIL
+import wang.harlon.webview.logpanel.WebViewLog
+import wang.harlon.webview.logpanel.nativeUncaughtConsoleMessage
 
 internal class SdkWebChromeClient(
     private val state: WebViewState,
@@ -17,6 +21,26 @@ internal class SdkWebChromeClient(
 
     override fun onReceivedTitle(view: WebView, title: String?) {
         state.onTitleChanged(title)
+    }
+
+    // 未捕获 JS 异常的 native 兜底：跨域脚本的异常在 shim 侧被脱敏成 "Script error."，
+    // 该通道不受脱敏约束，能补回真实 message 与文件行号（筛选逻辑见 nativeUncaughtConsoleMessage）。
+    // 恒返回 false，保留系统默认行为（logcat [INFO:CONSOLE] 照常输出）。
+    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+        val store = state.logStore ?: return false
+        if (consoleMessage.messageLevel() != ConsoleMessage.MessageLevel.ERROR) return false
+        val formatted = nativeUncaughtConsoleMessage(
+            message = consoleMessage.message(),
+            sourceId = consoleMessage.sourceId(),
+            lineNumber = consoleMessage.lineNumber(),
+        ) ?: return false
+        store.appendAsync(
+            source = WebViewLog.Source.JsException,
+            level = WebViewLog.Level.Error,
+            message = formatted,
+            detail = NATIVE_CONSOLE_DETAIL,
+        )
+        return false
     }
 
     override fun onShowFileChooser(

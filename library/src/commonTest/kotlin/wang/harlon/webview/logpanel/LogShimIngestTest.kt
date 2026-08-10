@@ -55,6 +55,37 @@ class LogShimIngestTest {
     }
 
     @Test
+    fun jserror_chromium_style_message_not_double_prefixed() = runTest {
+        val store = LogStore(scope = this, now = { 0L })
+        // Chromium 的 onerror message 自带 "Uncaught " 前缀，不应再补一次
+        store.ingestShimMessage(
+            """{"kind":"jserror","message":"Uncaught TypeError: x","src":"app.js","line":1,"col":2,"stack":"at y"}"""
+        )
+        assertEquals("Uncaught TypeError: x (app.js:1:2)", store.entries.value.single().message)
+    }
+
+    @Test
+    fun jserror_cross_origin_masked_gets_hint_detail() = runTest {
+        val store = LogStore(scope = this, now = { 0L })
+        // 跨域脱敏空壳：message 固定 "Script error."、无 src/line/stack
+        store.ingestShimMessage(
+            """{"kind":"jserror","message":"Script error.","src":null,"line":null,"col":null,"stack":null}"""
+        )
+        val log = store.entries.value.single()
+        assertEquals("Uncaught Script error.", log.message)
+        assertEquals(CROSS_ORIGIN_MASK_HINT, log.detail)
+    }
+
+    @Test
+    fun jserror_with_stack_keeps_stack_even_if_message_looks_masked() = runTest {
+        val store = LogStore(scope = this, now = { 0L })
+        store.ingestShimMessage(
+            """{"kind":"jserror","message":"Script error.","src":"app.js","line":1,"col":2,"stack":"at z"}"""
+        )
+        assertEquals("at z", store.entries.value.single().detail)
+    }
+
+    @Test
     fun rejection_maps_to_jsexception_error() = runTest {
         val store = LogStore(scope = this, now = { 0L })
         store.ingestShimMessage("""{"kind":"rejection","message":"Promise rejected","stack":"stack"}""")

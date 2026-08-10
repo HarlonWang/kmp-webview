@@ -3,7 +3,8 @@ package wang.harlon.webview.logpanel
 /**
  * 注入到 H5 页面的 JS 垫片：
  *   - 包装 `console.log/info/warn/error`，原版仍调用，复制一份发 native
- *   - 监听 `window.onerror` 抓未捕获异常（含 stack）
+ *   - 监听 `window.onerror` 抓未捕获异常（含 stack；跨域脚本会被浏览器脱敏成
+ *     "Script error." 且无 stack，成因与兜底见 [nativeUncaughtConsoleMessage]）
  *   - 监听 `unhandledrejection` 抓未处理的 Promise rejection
  *
  * 与 Native 的通道协议（JSON，运行时探测平台分支）：
