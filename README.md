@@ -4,7 +4,7 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/wang.harlon/kmp-webview?color=blue&label=Maven%20Central)](https://central.sonatype.com/artifact/wang.harlon/kmp-webview)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-brightgreen)](https://kotlinlang.org/docs/multiplatform.html)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 English | [中文](./README_ZH.md)
 
@@ -109,4 +109,4 @@ Set `WebViewConfig(enableLogPanel = true)` to inject an on-device, filterable lo
 
 ## License
 
-[Apache-2.0](LICENSE)
+[MIT](LICENSE)。已发版本的 POM 元数据有误，以 LICENSE 为准。
